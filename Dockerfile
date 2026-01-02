@@ -43,9 +43,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/src/generated ./src/generated
 
-# Create directories for uploads and db
-RUN mkdir -p uploads/books uploads/quizzes
-RUN chown -R nextjs:nodejs uploads
+# Create directories for uploads and db with correct permissions
+RUN mkdir -p uploads/books uploads/quizzes data
+RUN chown -R nextjs:nodejs uploads data
 
 USER nextjs
 
