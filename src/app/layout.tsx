@@ -24,7 +24,7 @@ export default function RootLayout({
     <html lang="ru" className="dark">
       <body className={`${inter.variable} font-sans antialiased`}>
         {children}
-        <Toaster richColors position="top-right" />
+        <Toaster richColors position="top-right" duration={2000} closeButton />
       </body>
     </html>
   );

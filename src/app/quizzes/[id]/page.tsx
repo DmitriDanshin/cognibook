@@ -399,10 +399,10 @@ export default function QuizPage({
         const isCorrect = currentResult.correctAnswers.includes(option.externalId);
 
         if (isCorrect) {
-            return "border-foreground bg-foreground/10";
+            return "border-green-500 bg-green-500/10";
         }
         if (isSelected && !isCorrect) {
-            return "border-muted-foreground/70 bg-muted/40";
+            return "border-red-500 bg-red-500/10";
         }
         return "";
     };
@@ -558,8 +558,8 @@ export default function QuizPage({
                                     <Badge
                                         className={
                                             currentResult?.isCorrect
-                                                ? "bg-foreground/10 text-foreground"
-                                                : "bg-muted/60 text-muted-foreground"
+                                                ? "bg-green-500/20 text-green-600 dark:text-green-400"
+                                                : "bg-red-500/20 text-red-600 dark:text-red-400"
                                         }
                                     >
                                         {currentResult?.isCorrect ? (
@@ -625,11 +625,11 @@ export default function QuizPage({
                                                                 {currentResult?.correctAnswers.includes(
                                                                     option.externalId
                                                                 ) ? (
-                                                                    <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-foreground" />
+                                                                    <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" />
                                                                 ) : currentResult?.selectedIds.includes(
                                                                     option.externalId
                                                                 ) ? (
-                                                                    <XCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                                                                    <XCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-600 dark:text-red-400" />
                                                                 ) : (
                                                                     <Lightbulb className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
                                                                 )}
@@ -637,11 +637,11 @@ export default function QuizPage({
                                                                     className={`text-sm ${currentResult?.correctAnswers.includes(
                                                                         option.externalId
                                                                     )
-                                                                        ? "text-foreground"
+                                                                        ? "text-green-600 dark:text-green-400"
                                                                         : currentResult?.selectedIds.includes(
                                                                             option.externalId
                                                                         )
-                                                                            ? "text-muted-foreground"
+                                                                            ? "text-red-600 dark:text-red-400"
                                                                             : "text-muted-foreground"
                                                                         }`}
                                                                 >
@@ -684,11 +684,11 @@ export default function QuizPage({
                                                                 {currentResult?.correctAnswers.includes(
                                                                     option.externalId
                                                                 ) ? (
-                                                                    <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-foreground" />
+                                                                    <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" />
                                                                 ) : currentResult?.selectedIds.includes(
                                                                     option.externalId
                                                                 ) ? (
-                                                                    <XCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                                                                    <XCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-600 dark:text-red-400" />
                                                                 ) : (
                                                                     <Lightbulb className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
                                                                 )}
@@ -696,11 +696,11 @@ export default function QuizPage({
                                                                     className={`text-sm ${currentResult?.correctAnswers.includes(
                                                                         option.externalId
                                                                     )
-                                                                        ? "text-foreground"
+                                                                        ? "text-green-600 dark:text-green-400"
                                                                         : currentResult?.selectedIds.includes(
                                                                             option.externalId
                                                                         )
-                                                                            ? "text-muted-foreground"
+                                                                            ? "text-red-600 dark:text-red-400"
                                                                             : "text-muted-foreground"
                                                                         }`}
                                                                 >
@@ -715,7 +715,7 @@ export default function QuizPage({
                                     </div>
                                 )}
                             </div>
-                            
+
                         </CardContent>
                     </Card>
                 )}
@@ -782,8 +782,8 @@ export default function QuizPage({
 
                                 if (result) {
                                     dotClass = result.isCorrect
-                                        ? "bg-foreground"
-                                        : "bg-muted-foreground";
+                                        ? "bg-green-500"
+                                        : "bg-red-500";
                                 } else if (answers.has(q.id)) {
                                     dotClass = "bg-foreground/50";
                                 }
