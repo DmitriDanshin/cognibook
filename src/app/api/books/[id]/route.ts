@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireAuth } from "@/lib/auth";
 import { unlink } from "fs/promises";
 import path from "path";
 
@@ -7,15 +8,22 @@ export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const authResult = await requireAuth(request);
+    if ("error" in authResult) {
+        return authResult.error;
+    }
+
     try {
         const { id } = await params;
         const book = await prisma.book.findUnique({
-            where: { id },
+            where: { id, userId: authResult.user.userId },
             include: {
                 chapters: {
                     orderBy: { order: "asc" },
                 },
-                readingProgress: true,
+                readingProgress: {
+                    where: { userId: authResult.user.userId },
+                },
             },
         });
 
@@ -37,10 +45,15 @@ export async function DELETE(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const authResult = await requireAuth(request);
+    if ("error" in authResult) {
+        return authResult.error;
+    }
+
     try {
         const { id } = await params;
         const book = await prisma.book.findUnique({
-            where: { id },
+            where: { id, userId: authResult.user.userId },
         });
 
         if (!book) {

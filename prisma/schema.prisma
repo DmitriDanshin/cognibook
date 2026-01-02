@@ -11,6 +11,23 @@ datasource db {
 }
 
 // ========================
+// User Model
+// ========================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  books           Book[]
+  quizzes         Quiz[]
+  quizAttempts    QuizAttempt[]
+  readingProgress ReadingProgress[]
+}
+
+// ========================
 // EPUB Library Models
 // ========================
 
@@ -20,13 +37,17 @@ model Book {
   author      String?
   coverPath   String?
   filePath    String   @unique
-  fileHash    String?  @unique
+  fileHash    String?
   fileSize    Int?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+  userId      String
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   chapters    Chapter[]
   readingProgress ReadingProgress[]
+
+  @@unique([fileHash, userId])
 }
 
 model Chapter {
@@ -49,10 +70,12 @@ model ReadingProgress {
   chapterId String?
   progress  Float    @default(0)
   updatedAt DateTime @updatedAt
-  
+  userId    String
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  
-  @@unique([bookId])
+
+  @@unique([bookId, userId])
 }
 
 // ========================
@@ -65,7 +88,9 @@ model Quiz {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   chapterId   String?  @unique
-  
+  userId      String
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   questions   Question[]
   attempts    QuizAttempt[]
   chapter     Chapter? @relation(fields: [chapterId], references: [id], onDelete: SetNull)
@@ -102,7 +127,9 @@ model QuizAttempt {
   score        Int
   totalQuestions Int
   completedAt  DateTime @default(now())
-  
+  userId       String
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   quiz         Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
   answers      AttemptAnswer[]
 }

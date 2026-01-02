@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireAuth } from "@/lib/auth";
 import { writeFile, mkdir, readFile } from "fs/promises";
 import path from "path";
 import { parseEpubFile, TocItem } from "@/lib/epub-parser";
@@ -27,12 +28,20 @@ async function createChapters(
     }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+    const authResult = await requireAuth(request);
+    if ("error" in authResult) {
+        return authResult.error;
+    }
+
     try {
         const books = await prisma.book.findMany({
+            where: { userId: authResult.user.userId },
             orderBy: { createdAt: "desc" },
             include: {
-                readingProgress: true,
+                readingProgress: {
+                    where: { userId: authResult.user.userId },
+                },
                 _count: {
                     select: { chapters: true },
                 },
@@ -50,6 +59,11 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+    const authResult = await requireAuth(request);
+    if ("error" in authResult) {
+        return authResult.error;
+    }
+
     try {
         const formData = await request.formData();
         const file = formData.get("file") as File;
@@ -80,7 +94,7 @@ export async function POST(request: NextRequest) {
         const fileHash = crypto.createHash("sha256").update(buffer).digest("hex");
 
         const existingByHash = await prisma.book.findFirst({
-            where: { fileHash },
+            where: { fileHash, userId: authResult.user.userId },
         });
 
         if (existingByHash) {
@@ -91,7 +105,7 @@ export async function POST(request: NextRequest) {
         }
 
         const hashCandidates = await prisma.book.findMany({
-            where: { fileHash: null, fileSize: file.size },
+            where: { fileHash: null, fileSize: file.size, userId: authResult.user.userId },
             select: { id: true, filePath: true, title: true, author: true },
         });
 
@@ -163,6 +177,7 @@ export async function POST(request: NextRequest) {
                 filePath: `/uploads/books/${fileName}`,
                 fileHash,
                 fileSize: file.size,
+                userId: authResult.user.userId,
             },
         });
 

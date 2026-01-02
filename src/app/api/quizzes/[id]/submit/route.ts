@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireAuth } from "@/lib/auth";
 import { z } from "zod";
 
 const SubmitQuizSchema = z.object({
@@ -15,6 +16,11 @@ export async function POST(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const authResult = await requireAuth(request);
+    if ("error" in authResult) {
+        return authResult.error;
+    }
+
     try {
         const { id } = await params;
         const body = await request.json();
@@ -22,7 +28,7 @@ export async function POST(
 
         // Get quiz with questions
         const quiz = await prisma.quiz.findUnique({
-            where: { id },
+            where: { id, userId: authResult.user.userId },
             include: {
                 questions: true,
             },
@@ -62,6 +68,7 @@ export async function POST(
         const attempt = await prisma.quizAttempt.create({
             data: {
                 quizId: id,
+                userId: authResult.user.userId,
                 score: correctCount,
                 totalQuestions: quiz.questions.length,
                 answers: {

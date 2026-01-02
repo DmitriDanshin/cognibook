@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireAuth } from "@/lib/auth";
 
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const authResult = await requireAuth(request);
+    if ("error" in authResult) {
+        return authResult.error;
+    }
+
     try {
         const { id } = await params;
         const quiz = await prisma.quiz.findUnique({
-            where: { id },
+            where: { id, userId: authResult.user.userId },
             include: {
                 questions: {
                     orderBy: { order: "asc" },
@@ -24,6 +30,7 @@ export async function GET(
                     },
                 },
                 attempts: {
+                    where: { userId: authResult.user.userId },
                     orderBy: { completedAt: "desc" },
                 },
             },
@@ -47,11 +54,16 @@ export async function DELETE(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const authResult = await requireAuth(request);
+    if ("error" in authResult) {
+        return authResult.error;
+    }
+
     try {
         const { id } = await params;
 
         const quiz = await prisma.quiz.findUnique({
-            where: { id },
+            where: { id, userId: authResult.user.userId },
         });
 
         if (!quiz) {

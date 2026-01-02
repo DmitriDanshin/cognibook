@@ -1,17 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireAuth } from "@/lib/auth";
 import { QuizSchema } from "@/lib/schemas/quiz";
 import { ZodError } from "zod";
 import { Prisma } from "@/generated/prisma/client";
 
 export async function GET(request: NextRequest) {
+    const authResult = await requireAuth(request);
+    if ("error" in authResult) {
+        return authResult.error;
+    }
+
     try {
         const { searchParams } = new URL(request.url);
         const chapterId = searchParams.get("chapterId");
 
         if (chapterId) {
             const quiz = await prisma.quiz.findUnique({
-                where: { chapterId },
+                where: { chapterId, userId: authResult.user.userId },
                 select: {
                     id: true,
                     title: true,
@@ -25,6 +31,7 @@ export async function GET(request: NextRequest) {
         }
 
         const quizzes = await prisma.quiz.findMany({
+            where: { userId: authResult.user.userId },
             orderBy: { createdAt: "desc" },
             include: {
                 chapter: {
@@ -36,6 +43,7 @@ export async function GET(request: NextRequest) {
                     select: { questions: true, attempts: true },
                 },
                 attempts: {
+                    where: { userId: authResult.user.userId },
                     orderBy: { completedAt: "desc" },
                     take: 1,
                 },
@@ -53,6 +61,11 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+    const authResult = await requireAuth(request);
+    if ("error" in authResult) {
+        return authResult.error;
+    }
+
     try {
         const formData = await request.formData();
         const file = formData.get("file") as File;
@@ -91,9 +104,18 @@ export async function POST(request: NextRequest) {
         if (chapterId) {
             const chapter = await prisma.chapter.findUnique({
                 where: { id: chapterId },
+                include: { book: true },
             });
 
             if (!chapter) {
+                return NextResponse.json(
+                    { error: "Chapter not found" },
+                    { status: 404 }
+                );
+            }
+
+            // Check that the chapter belongs to a book owned by the user
+            if (chapter.book.userId !== authResult.user.userId) {
                 return NextResponse.json(
                     { error: "Chapter not found" },
                     { status: 404 }
@@ -131,6 +153,7 @@ export async function POST(request: NextRequest) {
             data: {
                 title: validatedData.title,
                 chapterId: resolvedChapterId,
+                userId: authResult.user.userId,
                 questions: {
                     create: validatedData.questions.map((question, index) => ({
                         externalId: question.id,

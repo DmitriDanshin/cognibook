@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireAuth } from "@/lib/auth";
 import { readFile } from "fs/promises";
 import path from "path";
 import JSZip from "jszip";
@@ -17,6 +18,11 @@ export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const authResult = await requireAuth(request);
+    if ("error" in authResult) {
+        return authResult.error;
+    }
+
     try {
         const { id } = await params;
         const { searchParams } = new URL(request.url);
@@ -28,7 +34,7 @@ export async function GET(
 
         // Get book
         const book = await prisma.book.findUnique({
-            where: { id },
+            where: { id, userId: authResult.user.userId },
         });
 
         if (!book) {

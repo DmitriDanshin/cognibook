@@ -1,11 +1,32 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BookOpen, GraduationCap, ArrowRight, Sparkles } from "lucide-react";
+import { BookOpen, GraduationCap, ArrowRight, Sparkles, LogOut } from "lucide-react";
+import { toast } from "sonner";
 
 export default function HomePage() {
+  const router = useRouter();
+  const [user, setUser] = useState<{ email: string } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setUser(data?.user || null))
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    setUser(null);
+    toast.success("Вы вышли из аккаунта");
+    router.refresh();
+  }
+
   return (
     <div className="min-h-dvh bg-background text-foreground">
       {/* Navigation */}
@@ -37,6 +58,22 @@ export default function HomePage() {
                   Тесты
                 </Button>
               </Link>
+              {!isLoading && (
+                user ? (
+                  <Button
+                    variant="outline"
+                    onClick={handleLogout}
+                    className="gap-2"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Выйти
+                  </Button>
+                ) : (
+                  <Link href="/login">
+                    <Button>Войти</Button>
+                  </Link>
+                )
+              )}
             </div>
           </div>
         </div>
