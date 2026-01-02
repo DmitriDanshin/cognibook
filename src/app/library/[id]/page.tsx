@@ -86,7 +86,7 @@ export default function BookReaderPage({
     const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
     const [chapterContent, setChapterContent] = useState<string>("");
     const [contentLoading, setContentLoading] = useState(false);
-    const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
     const [expandedChapters, setExpandedChapters] = useState<string[]>([]);
     const [isQuizDialogOpen, setIsQuizDialogOpen] = useState(false);
     const [quizUploading, setQuizUploading] = useState(false);
@@ -382,6 +382,13 @@ export default function BookReaderPage({
         toast.success("Файл скачан");
     };
 
+    const handleSelectChapter = (chapter: Chapter) => {
+        setSelectedChapter(chapter);
+        if (typeof window !== "undefined" && window.innerWidth < 1024) {
+            setSidebarOpen(false);
+        }
+    };
+
     const renderChapterItem = (chapter: Chapter, level: number = 0) => {
         const hasChildren = chapter.children && chapter.children.length > 0;
         const isSelected = selectedChapter?.id === chapter.id;
@@ -390,7 +397,7 @@ export default function BookReaderPage({
             return (
                 <AccordionItem key={chapter.id} value={chapter.id} className="border-0">
                     <AccordionTrigger
-                        className={`px-4 py-2 text-sm hover:bg-slate-700/50 hover:no-underline ${isSelected ? "bg-violet-500/20 text-violet-300" : "text-slate-300"
+                        className={`px-4 py-2 text-sm hover:bg-foreground/5 hover:no-underline ${isSelected ? "bg-foreground/10 text-foreground" : "text-muted-foreground"
                             }`}
                         style={{ paddingLeft: `${level * 16 + 16}px` }}
                     >
@@ -408,10 +415,10 @@ export default function BookReaderPage({
         return (
             <button
                 key={chapter.id}
-                onClick={() => setSelectedChapter(chapter)}
-                className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors hover:bg-slate-700/50 ${isSelected
-                        ? "bg-violet-500/20 text-violet-300"
-                        : "text-slate-400 hover:text-slate-200"
+                onClick={() => handleSelectChapter(chapter)}
+                className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors hover:bg-foreground/5 ${isSelected
+                        ? "bg-foreground/10 text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
                     }`}
                 style={{ paddingLeft: `${level * 16 + 16}px` }}
             >
@@ -506,16 +513,16 @@ export default function BookReaderPage({
 
     if (loading) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-slate-900">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-500 border-t-transparent" />
+            <div className="flex min-h-dvh items-center justify-center bg-background">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-foreground/40 border-t-transparent" />
             </div>
         );
     }
 
     if (!book) {
         return (
-            <div className="flex min-h-screen flex-col items-center justify-center bg-slate-900 text-white">
-                <BookOpen className="mb-4 h-16 w-16 text-slate-600" />
+            <div className="flex min-h-dvh flex-col items-center justify-center bg-background text-foreground">
+                <BookOpen className="mb-4 h-16 w-16 text-muted-foreground" />
                 <h1 className="mb-2 text-2xl font-bold">Книга не найдена</h1>
                 <Link href="/library">
                     <Button variant="outline">Вернуться в библиотеку</Button>
@@ -533,30 +540,30 @@ export default function BookReaderPage({
         expandableChapterIds.every((id) => expandedSet.has(id));
 
     return (
-        <div className="flex h-screen bg-slate-900">
+        <div className="flex min-h-dvh bg-background text-foreground">
             {/* Sidebar */}
             <aside
-                className={`fixed inset-y-0 left-0 z-40 w-80 transform border-r border-slate-800 bg-slate-900 transition-transform duration-300 lg:relative lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+                className={`fixed inset-y-0 left-0 z-40 w-[85vw] max-w-sm transform border-r border-border bg-background transition-transform duration-300 sm:w-80 lg:relative lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
                     }`}
             >
                 {/* Sidebar Header */}
-                <div className="flex h-16 items-center justify-between border-b border-slate-800 px-4">
+                <div className="flex h-14 items-center justify-between border-b border-border px-4 sm:h-16">
                     <Link href="/library" className="flex items-center gap-2">
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="text-slate-400 hover:text-white"
+                            className="text-muted-foreground hover:text-foreground"
                         >
                             <ArrowLeft className="h-5 w-5" />
                         </Button>
                     </Link>
-                    <span className="line-clamp-1 flex-1 px-2 text-sm font-medium text-white">
+                    <span className="line-clamp-1 min-w-0 flex-1 px-2 text-sm font-medium text-foreground">
                         {book.title}
                     </span>
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="text-slate-400 hover:text-white lg:hidden"
+                        className="text-muted-foreground hover:text-foreground lg:hidden"
                         onClick={() => setSidebarOpen(false)}
                     >
                         <X className="h-5 w-5" />
@@ -565,13 +572,13 @@ export default function BookReaderPage({
 
                 {/* Table of Contents */}
                 <div className="flex items-center justify-between px-4 py-3">
-                    <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                         Оглавление
                     </h2>
                     <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 px-2 text-xs text-slate-400 hover:text-white"
+                        className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
                         onClick={() =>
                             setExpandedChapters(
                                 isAllExpanded ? [] : expandableChapterIds
@@ -582,7 +589,7 @@ export default function BookReaderPage({
                         {isAllExpanded ? "Свернуть" : "Раскрыть"}
                     </Button>
                 </div>
-                <ScrollArea className="h-[calc(100vh-8rem)]">
+                <ScrollArea className="h-[calc(100dvh-8rem)]">
                     {chapterTree.length > 0 ? (
                         <Accordion
                             type="multiple"
@@ -593,7 +600,7 @@ export default function BookReaderPage({
                             {chapterTree.map((chapter) => renderChapterItem(chapter))}
                         </Accordion>
                     ) : (
-                        <div className="px-4 py-8 text-center text-slate-500">
+                        <div className="px-4 py-8 text-center text-muted-foreground">
                             <p>Оглавление не найдено</p>
                         </div>
                     )}
@@ -611,17 +618,17 @@ export default function BookReaderPage({
             {/* Main Content */}
             <main className="flex-1 overflow-hidden">
                 {/* Toolbar */}
-                <header className="flex h-16 items-center justify-between border-b border-slate-800 bg-slate-900/95 px-4 backdrop-blur">
-                    <div className="flex items-center gap-4">
+                <header className="flex h-14 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur sm:h-16 sm:px-6">
+                    <div className="flex min-w-0 items-center gap-4">
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="text-slate-400 hover:text-white lg:hidden"
+                            className="text-muted-foreground hover:text-foreground lg:hidden"
                             onClick={() => setSidebarOpen(true)}
                         >
                             <Menu className="h-5 w-5" />
                         </Button>
-                        <h1 className="line-clamp-1 text-lg font-medium text-white">
+                        <h1 className="line-clamp-1 text-base font-medium text-foreground sm:text-lg">
                             {selectedChapter?.title || "Выберите главу"}
                         </h1>
                     </div>
@@ -630,7 +637,7 @@ export default function BookReaderPage({
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className="gap-2 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
+                                className="gap-2 text-muted-foreground hover:text-foreground"
                                 onClick={() => router.push(`/quizzes/${linkedQuiz.id}`)}
                                 disabled={linkedQuizLoading}
                                 title={linkedQuiz.title}
@@ -647,54 +654,54 @@ export default function BookReaderPage({
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="gap-2 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
+                                        className="gap-2 text-muted-foreground hover:text-foreground"
                                         disabled={!selectedChapter || linkedQuizLoading}
                                     >
                                         <FileJson className="h-4 w-4" />
                                         <span className="hidden sm:inline">Создать тест</span>
                                     </Button>
                                 </DialogTrigger>
-                                <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto border-slate-800 bg-slate-900">
+                                <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto border-border bg-background">
                                     <DialogHeader>
-                                        <DialogTitle className="text-white">
+                                        <DialogTitle className="text-foreground">
                                             Загрузить JSON тест
                                         </DialogTitle>
-                                        <DialogDescription className="text-slate-400">
+                                        <DialogDescription className="text-muted-foreground">
                                             Тест будет привязан к выбранной главе
                                         </DialogDescription>
                                     </DialogHeader>
                                     <div className="mt-4 space-y-4">
-                                        <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-300">
-                                            <div className="mb-1 text-xs uppercase tracking-wider text-slate-500">
+                                        <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+                                            <div className="mb-1 text-xs uppercase tracking-wider text-muted-foreground">
                                                 Привязка
                                             </div>
                                             <div>
                                                 Книга:{" "}
-                                                <span className="text-slate-100">
-                                                    {book?.title || "—"}
+                                                <span className="text-foreground">
+                                                    {book?.title || "-"}
                                                 </span>
                                             </div>
                                             <div>
                                                 Глава:{" "}
-                                                <span className="text-slate-100">
-                                                    {selectedChapter?.title || "—"}
+                                                <span className="text-foreground">
+                                                    {selectedChapter?.title || "-"}
                                                 </span>
                                             </div>
                                         </div>
 
                                         <label
                                             htmlFor="chapter-quiz-upload"
-                                            className="group flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-700 bg-slate-800/50 p-8 transition-all hover:border-violet-500 hover:bg-slate-800"
+                                            className="group flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/40 p-8 transition-all hover:border-foreground/50 hover:bg-muted/60"
                                         >
-                                            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-violet-500/20 text-violet-400 transition-transform group-hover:scale-110">
+                                            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-foreground/10 text-foreground transition-transform group-hover:scale-110">
                                                 <Upload className="h-8 w-8" />
                                             </div>
-                                            <span className="mb-2 text-lg font-medium text-white">
+                                            <span className="mb-2 text-lg font-medium text-foreground">
                                                 {quizUploading
                                                     ? "Загрузка..."
                                                     : "Нажмите для выбора файла"}
                                             </span>
-                                            <span className="text-sm text-slate-400">
+                                            <span className="text-sm text-muted-foreground">
                                                 или перетащите файл сюда
                                             </span>
                                             <Input
@@ -710,7 +717,7 @@ export default function BookReaderPage({
                                         {quizValidationErrors.length > 0 && (
                                             <Alert
                                                 variant="destructive"
-                                                className="border-red-500/50 bg-red-500/10"
+                                                className="border-destructive/30 bg-destructive/10"
                                             >
                                                 <AlertDescription>
                                                     <div className="space-y-1">
@@ -732,10 +739,10 @@ export default function BookReaderPage({
                                             </Alert>
                                         )}
 
-                                        <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-slate-500">
-                                            <span className="h-px flex-1 bg-slate-800" />
+                                        <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-muted-foreground">
+                                            <span className="h-px flex-1 bg-border" />
                                             или вставьте JSON
-                                            <span className="h-px flex-1 bg-slate-800" />
+                                            <span className="h-px flex-1 bg-border" />
                                         </div>
 
                                         <div className="space-y-3">
@@ -745,12 +752,12 @@ export default function BookReaderPage({
                                                     setQuizJsonText(e.target.value)
                                                 }
                                                 placeholder="Вставьте JSON теста сюда"
-                                                className="min-h-40 max-h-60 resize-y overflow-y-auto bg-slate-950/40 text-slate-100 placeholder:text-slate-500"
+                                                className="min-h-40 max-h-60 resize-y overflow-y-auto bg-background text-foreground placeholder:text-muted-foreground"
                                                 disabled={quizUploading}
                                             />
                                             <Button
                                                 type="button"
-                                                className="w-full bg-violet-600 hover:bg-violet-500"
+                                                className="w-full"
                                                 onClick={handleQuizTextUpload}
                                                 disabled={quizUploading || !quizJsonText.trim()}
                                             >
@@ -766,7 +773,7 @@ export default function BookReaderPage({
                         <Button
                             variant="outline"
                             size="sm"
-                            className="gap-2 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
+                            className="gap-2 text-muted-foreground hover:text-foreground"
                             onClick={handleCopyText}
                         >
                             <Copy className="h-4 w-4" />
@@ -775,7 +782,7 @@ export default function BookReaderPage({
                         <Button
                             variant="outline"
                             size="sm"
-                            className="gap-2 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
+                            className="gap-2 text-muted-foreground hover:text-foreground"
                             onClick={handleDownloadTxt}
                         >
                             <Download className="h-4 w-4" />
@@ -785,20 +792,20 @@ export default function BookReaderPage({
                 </header>
 
                 {/* Reading Area */}
-                <ScrollArea className="h-[calc(100vh-4rem)]">
+                <ScrollArea className="h-[calc(100dvh-3.5rem)] sm:h-[calc(100dvh-4rem)]">
                     {contentLoading ? (
                         <div className="flex h-full items-center justify-center py-20">
-                            <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+                            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                         </div>
                     ) : chapterContent ? (
-                        <article className="prose prose-invert prose-slate mx-auto max-w-3xl px-6 py-8 prose-headings:text-white prose-p:text-slate-300 prose-a:text-violet-400 prose-strong:text-white prose-blockquote:border-violet-500 prose-blockquote:text-slate-400 prose-li:text-slate-300">
+                        <article className="prose mx-auto w-full max-w-3xl px-4 pt-6 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-8 sm:pb-[calc(2.5rem+env(safe-area-inset-bottom))]">
                             <div
                                 ref={contentRef}
                                 dangerouslySetInnerHTML={{ __html: chapterContent }}
                             />
                         </article>
                     ) : (
-                        <div className="flex h-full flex-col items-center justify-center py-20 text-slate-500">
+                        <div className="flex h-full flex-col items-center justify-center py-20 text-muted-foreground">
                             <BookOpen className="mb-4 h-16 w-16" />
                             <p>Выберите главу для чтения</p>
                         </div>

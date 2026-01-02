@@ -399,26 +399,26 @@ export default function QuizPage({
         const isCorrect = currentResult.correctAnswers.includes(option.externalId);
 
         if (isCorrect) {
-            return "border-emerald-500 bg-emerald-500/10";
+            return "border-foreground bg-foreground/10";
         }
         if (isSelected && !isCorrect) {
-            return "border-red-500 bg-red-500/10";
+            return "border-muted-foreground/70 bg-muted/40";
         }
         return "";
     };
 
     if (loading) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-slate-900">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+            <div className="flex min-h-dvh items-center justify-center bg-background">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-foreground/40 border-t-transparent" />
             </div>
         );
     }
 
     if (!quiz) {
         return (
-            <div className="flex min-h-screen flex-col items-center justify-center bg-slate-900 text-white">
-                <GraduationCap className="mb-4 h-16 w-16 text-slate-600" />
+            <div className="flex min-h-dvh flex-col items-center justify-center bg-background text-foreground">
+                <GraduationCap className="mb-4 h-16 w-16 text-muted-foreground" />
                 <h1 className="mb-2 text-2xl font-bold">Тест не найден</h1>
                 <Link href="/quizzes">
                     <Button variant="outline">Вернуться к тестам</Button>
@@ -433,14 +433,14 @@ export default function QuizPage({
         const isPassing = percentage >= 70;
 
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-                <div className="flex min-h-screen flex-col items-center justify-center p-4">
-                    <Card className="w-full max-w-md border-slate-800 bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur">
+            <div className="min-h-dvh bg-background">
+                <div className="flex min-h-dvh flex-col items-center justify-center p-4">
+                    <Card className="w-full max-w-md border-border bg-card">
                         <CardHeader className="text-center">
                             <div
                                 className={`mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full ${isPassing
-                                    ? "bg-emerald-500/20 text-emerald-400"
-                                    : "bg-amber-500/20 text-amber-400"
+                                    ? "bg-foreground/10 text-foreground"
+                                    : "bg-muted/60 text-muted-foreground"
                                     }`}
                             >
                                 {isPassing ? (
@@ -449,24 +449,24 @@ export default function QuizPage({
                                     <AlertCircle className="h-12 w-12" />
                                 )}
                             </div>
-                            <CardTitle className="text-2xl text-white">
+                            <CardTitle className="text-2xl text-foreground">
                                 {isPassing ? "Отлично!" : "Попробуйте ещё раз"}
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="text-center">
                             <div className="mb-6">
-                                <div className="mb-2 text-6xl font-bold text-white">
+                                <div className="mb-2 text-6xl font-bold text-foreground">
                                     {percentage}%
                                 </div>
-                                <div className="text-slate-400">
+                                <div className="text-muted-foreground">
                                     Правильных ответов: {finalScore.score} из {finalScore.total}
                                 </div>
                             </div>
-                            <div className="mb-4 h-3 overflow-hidden rounded-full bg-slate-700">
+                            <div className="mb-4 h-3 overflow-hidden rounded-full bg-border">
                                 <div
                                     className={`h-full rounded-full transition-all duration-1000 ${isPassing
-                                        ? "bg-gradient-to-r from-emerald-500 to-cyan-500"
-                                        : "bg-gradient-to-r from-amber-500 to-orange-500"
+                                        ? "bg-foreground"
+                                        : "bg-muted-foreground"
                                         }`}
                                     style={{ width: `${percentage}%` }}
                                 />
@@ -475,7 +475,7 @@ export default function QuizPage({
                         <CardFooter className="flex flex-col gap-3">
                             <Button
                                 onClick={handleRestartQuiz}
-                                className="w-full gap-2 bg-indigo-600 hover:bg-indigo-500"
+                                className="w-full gap-2"
                             >
                                 <RotateCcw className="h-4 w-4" />
                                 Пройти заново
@@ -483,7 +483,7 @@ export default function QuizPage({
                             <Link href="/quizzes" className="w-full">
                                 <Button
                                     variant="outline"
-                                    className="w-full gap-2 border-slate-700 text-slate-300"
+                                    className="w-full gap-2"
                                 >
                                     <Home className="h-4 w-4" />
                                     К списку тестов
@@ -497,9 +497,9 @@ export default function QuizPage({
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <div className="min-h-dvh bg-background">
             {/* Header */}
-            <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-900/80 backdrop-blur-xl">
+            <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-xl">
                 <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
                     <div className="flex h-16 items-center justify-between">
                         <div className="flex items-center gap-4">
@@ -507,23 +507,22 @@ export default function QuizPage({
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="text-slate-400 hover:text-white"
+                                    className="text-muted-foreground hover:text-foreground"
                                 >
                                     <ArrowLeft className="h-5 w-5" />
                                 </Button>
                             </Link>
                             <div>
-                                <h1 className="line-clamp-1 text-lg font-bold text-white">
+                                <h1 className="line-clamp-1 text-lg font-bold text-foreground">
                                     {quiz.title}
                                 </h1>
-                                <div className="text-sm text-slate-400">
+                                <div className="text-sm text-muted-foreground">
                                     Вопрос {currentQuestionIndex + 1} из {quiz.questions.length}
                                 </div>
                             </div>
                         </div>
                         <Badge
                             variant="secondary"
-                            className="bg-slate-700/50 text-slate-300"
                         >
                             {checkedQuestions.size} / {quiz.questions.length} проверено
                         </Badge>
@@ -532,9 +531,9 @@ export default function QuizPage({
             </header>
 
             {/* Progress Bar */}
-            <div className="h-1 bg-slate-800">
+            <div className="h-1 bg-border">
                 <div
-                    className="h-full bg-gradient-to-r from-indigo-500 to-cyan-500 transition-all duration-300"
+                    className="h-full bg-foreground transition-all duration-300"
                     style={{
                         width: `${((currentQuestionIndex + 1) / quiz.questions.length) * 100}%`,
                     }}
@@ -542,14 +541,14 @@ export default function QuizPage({
             </div>
 
             {/* Main Content */}
-            <main className="mx-auto max-w-5xl px-4 py-8 pb-32 sm:px-6 lg:px-8">
+            <main className="mx-auto max-w-5xl px-4 pt-6 pb-[calc(8rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-8 lg:px-8">
                 {currentQuestion && (
-                    <Card className="border-slate-800 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur">
+                    <Card className="border-border">
                         <CardHeader>
                             <div className="mb-2 flex items-center gap-2">
                                 <Badge
                                     variant="outline"
-                                    className="border-indigo-500/50 text-indigo-400"
+                                    className="border-border text-muted-foreground"
                                 >
                                     {currentQuestion.type === "single"
                                         ? "Один ответ"
@@ -559,8 +558,8 @@ export default function QuizPage({
                                     <Badge
                                         className={
                                             currentResult?.isCorrect
-                                                ? "bg-emerald-500/20 text-emerald-400"
-                                                : "bg-red-500/20 text-red-400"
+                                                ? "bg-foreground/10 text-foreground"
+                                                : "bg-muted/60 text-muted-foreground"
                                         }
                                     >
                                         {currentResult?.isCorrect ? (
@@ -575,23 +574,23 @@ export default function QuizPage({
                                     </Badge>
                                 )}
                             </div>
-                            <CardTitle className="text-lg text-white">
-                                <HelpCircle className="mb-1 mr-2 inline h-5 w-5 text-indigo-400" />
+                            <CardTitle className="text-lg text-foreground">
+                                <HelpCircle className="mb-1 mr-2 inline h-5 w-5 text-muted-foreground" />
                                 {currentQuestion.text}
                             </CardTitle>
                             {isCurrentChecked && quoteLink && currentQuestion?.quote && (
-                                <div className="mt-4 rounded-lg border border-slate-700 bg-slate-900/40 p-4">
-                                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                <div className="mt-4 rounded-lg border border-border bg-muted/40 p-4">
+                                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                         Цитата из книги
                                     </div>
                                     <a
                                         href={quoteLink}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="block text-sm text-indigo-300 transition-colors hover:text-indigo-200"
+                                        className="block text-sm text-foreground underline decoration-muted-foreground/60 underline-offset-2 transition-colors hover:decoration-foreground"
                                         title={`Открыть главу: ${quiz?.chapter?.title}`}
                                     >
-                                        “{currentQuestion.quote}”
+                                        "{currentQuestion.quote}"
                                     </a>
                                 </div>
                             )}
@@ -611,8 +610,8 @@ export default function QuizPage({
                                                     className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all ${isCurrentChecked
                                                         ? getOptionStyle(option)
                                                         : currentAnswer.includes(option.externalId)
-                                                            ? "border-indigo-500 bg-indigo-500/10"
-                                                            : "border-slate-700 hover:border-slate-600 hover:bg-slate-800/50"
+                                                            ? "border-foreground/60 bg-foreground/5"
+                                                            : "border-border hover:border-foreground/30 hover:bg-muted/40"
                                                         }`}
                                                 >
                                                     <RadioGroupItem
@@ -620,30 +619,30 @@ export default function QuizPage({
                                                         className="mt-0.5"
                                                     />
                                                     <div className="flex-1">
-                                <span className="text-sm text-white">{option.text}</span>
+                                                        <span className="text-base text-foreground">{option.text}</span>
                                                         {isCurrentChecked && (
                                                             <div className="mt-2 flex items-start gap-2">
                                                                 {currentResult?.correctAnswers.includes(
                                                                     option.externalId
                                                                 ) ? (
-                                                                    <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-400" />
+                                                                    <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-foreground" />
                                                                 ) : currentResult?.selectedIds.includes(
                                                                     option.externalId
                                                                 ) ? (
-                                                                    <XCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-400" />
+                                                                    <XCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
                                                                 ) : (
-                                                                    <Lightbulb className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-500" />
+                                                                    <Lightbulb className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
                                                                 )}
                                                                 <span
                                                                     className={`text-sm ${currentResult?.correctAnswers.includes(
                                                                         option.externalId
                                                                     )
-                                                                        ? "text-emerald-300"
+                                                                        ? "text-foreground"
                                                                         : currentResult?.selectedIds.includes(
                                                                             option.externalId
                                                                         )
-                                                                            ? "text-red-300"
-                                                                            : "text-slate-400"
+                                                                            ? "text-muted-foreground"
+                                                                            : "text-muted-foreground"
                                                                         }`}
                                                                 >
                                                                     {option.explanation}
@@ -663,8 +662,8 @@ export default function QuizPage({
                                                     className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all ${isCurrentChecked
                                                         ? getOptionStyle(option)
                                                         : currentAnswer.includes(option.externalId)
-                                                            ? "border-indigo-500 bg-indigo-500/10"
-                                                            : "border-slate-700 hover:border-slate-600 hover:bg-slate-800/50"
+                                                            ? "border-foreground/60 bg-foreground/5"
+                                                            : "border-border hover:border-foreground/30 hover:bg-muted/40"
                                                         }`}
                                                 >
                                                     <Checkbox
@@ -679,30 +678,30 @@ export default function QuizPage({
                                                         className="mt-0.5"
                                                     />
                                                     <div className="flex-1">
-                                                        <span className="text-sm text-white">{option.text}</span>
+                                                        <span className="text-base text-foreground">{option.text}</span>
                                                         {isCurrentChecked && (
                                                             <div className="mt-2 flex items-start gap-2">
                                                                 {currentResult?.correctAnswers.includes(
                                                                     option.externalId
                                                                 ) ? (
-                                                                    <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-400" />
+                                                                    <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-foreground" />
                                                                 ) : currentResult?.selectedIds.includes(
                                                                     option.externalId
                                                                 ) ? (
-                                                                    <XCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-400" />
+                                                                    <XCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
                                                                 ) : (
-                                                                    <Lightbulb className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-500" />
+                                                                    <Lightbulb className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
                                                                 )}
                                                                 <span
                                                                     className={`text-sm ${currentResult?.correctAnswers.includes(
                                                                         option.externalId
                                                                     )
-                                                                        ? "text-emerald-300"
+                                                                        ? "text-foreground"
                                                                         : currentResult?.selectedIds.includes(
                                                                             option.externalId
                                                                         )
-                                                                            ? "text-red-300"
-                                                                            : "text-slate-400"
+                                                                            ? "text-muted-foreground"
+                                                                            : "text-muted-foreground"
                                                                         }`}
                                                                 >
                                                                     {option.explanation}
@@ -724,8 +723,8 @@ export default function QuizPage({
 
             {/* Sticky Navigation Footer - всегда виден внизу экрана */}
             {currentQuestion && (
-                <footer className="sticky bottom-0 z-40 border-t border-white/10 bg-slate-900/95 backdrop-blur-xl">
-                    <div className="mx-auto max-w-5xl px-4 py-4 sm:px-6 lg:px-8">
+                <footer className="sticky bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur-xl pb-[env(safe-area-inset-bottom)]">
+                    <div className="mx-auto max-w-5xl px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
                         {/* Кнопки навигации */}
                         <div className="flex items-center justify-between gap-4">
                             {/* Кнопка Назад - слева */}
@@ -733,7 +732,7 @@ export default function QuizPage({
                                 variant="outline"
                                 onClick={handlePreviousQuestion}
                                 disabled={currentQuestionIndex === 0}
-                                className="gap-2 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-50"
+                                className="gap-2 text-muted-foreground hover:text-foreground disabled:opacity-50"
                             >
                                 <ArrowLeft className="h-4 w-4" />
                                 <span className="hidden sm:inline">Назад</span>
@@ -745,7 +744,7 @@ export default function QuizPage({
                                     <Button
                                         onClick={handleCheckAnswer}
                                         size="lg"
-                                        className="gap-2 bg-indigo-600 px-6 sm:px-8 hover:bg-indigo-500"
+                                        className="gap-2 px-6 sm:px-8"
                                     >
                                         <CheckCircle2 className="h-4 w-4" />
                                         Проверить
@@ -754,7 +753,7 @@ export default function QuizPage({
                                     <Button
                                         onClick={handleFinishQuiz}
                                         size="lg"
-                                        className="gap-2 bg-gradient-to-r from-emerald-600 to-cyan-600 px-6 sm:px-8 hover:from-emerald-500 hover:to-cyan-500"
+                                        className="gap-2 px-6 sm:px-8"
                                     >
                                         <Trophy className="h-4 w-4" />
                                         <span className="hidden sm:inline">Завершить тест</span>
@@ -768,7 +767,7 @@ export default function QuizPage({
                                 variant="outline"
                                 onClick={handleNextQuestion}
                                 disabled={currentQuestionIndex >= quiz.questions.length - 1}
-                                className="gap-2 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-50"
+                                className="gap-2 text-muted-foreground hover:text-foreground disabled:opacity-50"
                             >
                                 <span className="hidden sm:inline">Далее</span>
                                 <ArrowRight className="h-4 w-4" />
@@ -779,18 +778,19 @@ export default function QuizPage({
                         <div className="mt-3 flex flex-wrap justify-center gap-2">
                             {quiz.questions.map((q, index) => {
                                 const result = checkedQuestions.get(q.id);
-                                let dotClass = "bg-slate-700 hover:bg-slate-600";
+                                let dotClass = "bg-border hover:bg-muted-foreground/40";
 
                                 if (result) {
                                     dotClass = result.isCorrect
-                                        ? "bg-emerald-500"
-                                        : "bg-red-500";
+                                        ? "bg-foreground"
+                                        : "bg-muted-foreground";
                                 } else if (answers.has(q.id)) {
-                                    dotClass = "bg-indigo-500";
+                                    dotClass = "bg-foreground/50";
                                 }
 
                                 if (index === currentQuestionIndex) {
-                                    dotClass += " ring-2 ring-white ring-offset-2 ring-offset-slate-900";
+                                    dotClass +=
+                                        " ring-2 ring-foreground ring-offset-2 ring-offset-background";
                                 }
 
                                 return (

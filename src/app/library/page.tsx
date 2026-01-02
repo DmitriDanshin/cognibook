@@ -142,57 +142,59 @@ export default function LibraryPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <div className="min-h-dvh bg-background text-foreground">
             {/* Header */}
-            <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-900/80 backdrop-blur-xl">
+            <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-xl">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div className="flex h-16 items-center justify-between">
-                        <div className="flex items-center gap-4">
+                    <div className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-4">
+                        <div className="flex min-w-0 items-center gap-3">
                             <Link href="/">
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="text-slate-400 hover:text-white"
+                                    className="text-muted-foreground hover:text-foreground"
                                 >
                                     <ArrowLeft className="h-5 w-5" />
                                 </Button>
                             </Link>
                             <div className="flex items-center gap-2">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600">
-                                    <BookOpen className="h-5 w-5 text-white" />
+                                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-foreground/10 text-foreground">
+                                    <BookOpen className="h-5 w-5" />
                                 </div>
-                                <h1 className="text-xl font-bold text-white">Библиотека</h1>
+                                <h1 className="text-lg font-bold text-foreground sm:text-xl">
+                                    Библиотека
+                                </h1>
                             </div>
                         </div>
 
                         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                             <DialogTrigger asChild>
-                                <Button className="gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500">
+                                <Button className="w-full gap-2 sm:w-auto">
                                     <Upload className="h-4 w-4" />
                                     Загрузить книгу
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent className="border-slate-800 bg-slate-900">
+                            <DialogContent className="border-border bg-background">
                                 <DialogHeader>
-                                    <DialogTitle className="text-white">
+                                    <DialogTitle className="text-foreground">
                                         Загрузить EPUB книгу
                                     </DialogTitle>
-                                    <DialogDescription className="text-slate-400">
+                                    <DialogDescription className="text-muted-foreground">
                                         Выберите файл в формате .epub для загрузки в библиотеку
                                     </DialogDescription>
                                 </DialogHeader>
                                 <div className="mt-4">
                                     <label
                                         htmlFor="epub-upload"
-                                        className="group flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-700 bg-slate-800/50 p-8 transition-all hover:border-violet-500 hover:bg-slate-800"
+                                        className="group flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/40 p-8 transition-all hover:border-foreground/40 hover:bg-muted/60"
                                     >
-                                        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-violet-500/20 text-violet-400 transition-transform group-hover:scale-110">
+                                        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-foreground/10 text-foreground transition-transform group-hover:scale-110">
                                             <Upload className="h-8 w-8" />
                                         </div>
-                                        <span className="mb-2 text-lg font-medium text-white">
+                                        <span className="mb-2 text-lg font-medium text-foreground">
                                             {uploading ? "Загрузка..." : "Нажмите для выбора файла"}
                                         </span>
-                                        <span className="text-sm text-slate-400">
+                                        <span className="text-sm text-muted-foreground">
                                             или перетащите файл сюда
                                         </span>
                                         <Input
@@ -215,22 +217,22 @@ export default function LibraryPage() {
             <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
                 {loading ? (
                     <div className="flex min-h-[400px] items-center justify-center">
-                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-500 border-t-transparent" />
+                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-foreground/40 border-t-transparent" />
                     </div>
                 ) : books.length === 0 ? (
                     <div className="flex min-h-[400px] flex-col items-center justify-center text-center">
-                        <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-slate-800">
-                            <BookOpen className="h-12 w-12 text-slate-600" />
+                        <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-muted/60">
+                            <BookOpen className="h-12 w-12 text-muted-foreground" />
                         </div>
-                        <h2 className="mb-2 text-2xl font-bold text-white">
+                        <h2 className="mb-2 text-2xl font-bold text-foreground">
                             Библиотека пуста
                         </h2>
-                        <p className="mb-6 text-slate-400">
+                        <p className="mb-6 text-muted-foreground">
                             Загрузите свою первую книгу в формате EPUB
                         </p>
                         <Button
                             onClick={() => setIsDialogOpen(true)}
-                            className="gap-2 bg-gradient-to-r from-violet-600 to-indigo-600"
+                            className="gap-2"
                         >
                             <Upload className="h-4 w-4" />
                             Загрузить книгу
@@ -241,11 +243,11 @@ export default function LibraryPage() {
                         {books.map((book) => (
                             <Card
                                 key={book.id}
-                                className="group relative min-w-0 overflow-hidden border-slate-800 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur transition-all hover:border-violet-500/50 hover:shadow-lg hover:shadow-violet-500/10"
+                                className="group relative min-w-0 overflow-hidden border-border bg-card transition-all hover:border-foreground/30 hover:shadow-lg hover:shadow-black/5"
                             >
                                 <CardHeader className="pb-2">
                                     {/* Book Cover */}
-                                    <div className="mb-4 flex aspect-[3/4] items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-slate-700 to-slate-800 transition-transform group-hover:scale-[1.02]">
+                                    <div className="mb-4 flex aspect-[3/4] items-center justify-center overflow-hidden rounded-lg bg-muted/60 transition-transform group-hover:scale-[1.02]">
                                         {book.coverPath ? (
                                             <img
                                                 src={`/api${book.coverPath}`}
@@ -253,11 +255,11 @@ export default function LibraryPage() {
                                                 className="h-full w-full object-cover"
                                             />
                                         ) : (
-                                            <FileText className="h-16 w-16 text-slate-500" />
+                                            <FileText className="h-16 w-16 text-muted-foreground" />
                                         )}
                                     </div>
                                     <CardTitle
-                                        className="min-h-[3rem] text-lg leading-snug text-white break-words"
+                                        className="min-h-[3rem] text-lg leading-snug text-foreground break-words"
                                         title={book.title}
                                         style={{
                                             display: "-webkit-box",
@@ -270,36 +272,30 @@ export default function LibraryPage() {
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="pb-2">
-                                    <p className="mb-3 text-sm text-slate-400">
+                                    <p className="mb-3 text-sm text-muted-foreground">
                                         {book.author || "Автор неизвестен"}
                                     </p>
                                     <div className="flex flex-wrap gap-2">
-                                        <Badge
-                                            variant="secondary"
-                                            className="gap-1 bg-slate-700/50 text-slate-300"
-                                        >
+                                        <Badge variant="secondary" className="gap-1">
                                             <HardDrive className="h-3 w-3" />
                                             {formatFileSize(book.fileSize)}
                                         </Badge>
-                                        <Badge
-                                            variant="secondary"
-                                            className="gap-1 bg-slate-700/50 text-slate-300"
-                                        >
+                                        <Badge variant="secondary" className="gap-1">
                                             <Clock className="h-3 w-3" />
                                             {formatDate(book.createdAt)}
                                         </Badge>
                                     </div>
                                     {book.readingProgress[0]?.progress > 0 && (
                                         <div className="mt-3">
-                                            <div className="mb-1 flex justify-between text-xs text-slate-400">
+                                            <div className="mb-1 flex justify-between text-xs text-muted-foreground">
                                                 <span>Прогресс</span>
                                                 <span>
                                                     {Math.round(book.readingProgress[0].progress)}%
                                                 </span>
                                             </div>
-                                            <div className="h-1.5 overflow-hidden rounded-full bg-slate-700">
+                                            <div className="h-1.5 overflow-hidden rounded-full bg-border">
                                                 <div
-                                                    className="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-500"
+                                                    className="h-full rounded-full bg-foreground"
                                                     style={{
                                                         width: `${book.readingProgress[0].progress}%`,
                                                     }}
@@ -310,7 +306,7 @@ export default function LibraryPage() {
                                 </CardContent>
                                 <CardFooter className="gap-2">
                                     <Link href={`/library/${book.id}`} className="flex-1">
-                                        <Button className="w-full bg-violet-600 hover:bg-violet-500">
+                                        <Button className="w-full">
                                             <BookOpen className="mr-2 h-4 w-4" />
                                             Читать
                                         </Button>
@@ -318,7 +314,7 @@ export default function LibraryPage() {
                                     <Button
                                         variant="outline"
                                         size="icon"
-                                        className="border-slate-700 text-slate-400 hover:border-red-500 hover:bg-red-500/10 hover:text-red-400"
+                                        className="text-muted-foreground hover:text-foreground"
                                         onClick={() => handleDelete(book.id, book.title)}
                                     >
                                         <Trash2 className="h-4 w-4" />

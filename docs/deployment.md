@@ -14,6 +14,21 @@ ssh root@your-server-ip
 mkdir -p /opt/cognibook
 ```
 
+### Быстрый деплой (PowerShell)
+
+Для Windows/PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1
+```
+
+С параметрами:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1 -ServerHost your-server-ip -User root -AppDir /opt/cognibook
+```
+
+
 ### 2. Копирование файлов
 
 С локальной машины:
