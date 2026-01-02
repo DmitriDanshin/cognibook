@@ -530,107 +530,11 @@ export default function QuizzesPage() {
                                     <DialogTitle className="text-foreground">
                                         Загрузить JSON тест
                                     </DialogTitle>
-                                <DialogDescription className="text-muted-foreground">
-                                    Выберите файл .json с тестом в правильном формате
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div className="mt-4 space-y-4">
-                                <div className="rounded-xl border border-border bg-muted/40 p-4">
-                                    <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                        Привязка к книге
-                                    </div>
-                                    <div className="space-y-3">
-                                        <label className="text-sm text-muted-foreground">
-                                            Книга
-                                        </label>
-                                        <select
-                                            value={selectedBookId}
-                                            onChange={(e) => handleBookChange(e.target.value)}
-                                            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-foreground/60 focus:outline-none"
-                                            disabled={uploading || booksLoading}
-                                        >
-                                            <option value="">Не привязывать</option>
-                                            {books.map((book) => (
-                                                <option key={book.id} value={book.id}>
-                                                    {book.title}
-                                                </option>
-                                            ))}
-                                        </select>
-
-                                        {selectedBookId && (
-                                            <>
-                                                <label className="text-sm text-muted-foreground">
-                                                    Глава
-                                                </label>
-                                                <Input
-                                                    value={chapterSearch}
-                                                    onChange={(e) =>
-                                                        setChapterSearch(e.target.value)
-                                                    }
-                                                    placeholder="Поиск главы"
-                                                    className="bg-background text-foreground placeholder:text-muted-foreground"
-                                                    disabled={uploading || chaptersLoading}
-                                                />
-                                                <ScrollArea className="h-40 rounded-lg border border-border bg-muted/40">
-                                                    <div className="p-2">
-                                                        {chaptersLoading ? (
-                                                            <div className="px-3 py-2 text-sm text-muted-foreground">
-                                                                Загрузка глав...
-                                                            </div>
-                                                        ) : filteredChapters.length === 0 ? (
-                                                            <div className="px-3 py-2 text-sm text-muted-foreground">
-                                                                Главы не найдены
-                                                            </div>
-                                                        ) : (
-                                                            filteredChapters.map((chapter) => (
-                                                                <button
-                                                                    key={chapter.id}
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        setSelectedChapterId(chapter.id)
-                                                                    }
-                                                                    className={`flex w-full items-center rounded-md px-3 py-2 text-left text-sm transition-colors ${selectedChapterId === chapter.id
-                                                                            ? "bg-foreground/10 text-foreground"
-                                                                            : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                                                                        }`}
-                                                                    style={{
-                                                                        paddingLeft: `${chapter.depth * 12 + 12}px`,
-                                                                    }}
-                                                                >
-                                                                    {chapter.label}
-                                                                </button>
-                                                            ))
-                                                        )}
-                                                    </div>
-                                                </ScrollArea>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <label
-                                    htmlFor="json-upload"
-                                    className="group flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/40 p-8 transition-all hover:border-foreground/40 hover:bg-muted/60"
-                                    >
-                                        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-foreground/10 text-foreground transition-transform group-hover:scale-110">
-                                            <FileJson className="h-8 w-8" />
-                                        </div>
-                                        <span className="mb-2 text-lg font-medium text-foreground">
-                                            {uploading ? "Загрузка..." : "Нажмите для выбора файла"}
-                                        </span>
-                                        <span className="text-sm text-muted-foreground">
-                                            или перетащите файл сюда
-                                        </span>
-                                        <Input
-                                            id="json-upload"
-                                            type="file"
-                                            accept=".json"
-                                            className="hidden"
-                                            onChange={handleFileUpload}
-                                            disabled={uploading}
-                                        />
-                                    </label>
-
+                                    <DialogDescription className="text-muted-foreground">
+                                        Вставьте готовый JSON или загрузите файл .json дополнительно
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="mt-4 space-y-4">
                                     {validationErrors.length > 0 && (
                                         <Alert
                                             variant="destructive"
@@ -650,13 +554,10 @@ export default function QuizzesPage() {
                                         </Alert>
                                     )}
 
-                                    <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-muted-foreground">
-                                        <span className="h-px flex-1 bg-border" />
-                                        или вставьте JSON
-                                        <span className="h-px flex-1 bg-border" />
-                                    </div>
-
                                     <div className="space-y-3">
+                                        <label className="text-sm font-medium text-foreground">
+                                            JSON теста
+                                        </label>
                                         <Textarea
                                             value={jsonText}
                                             onChange={(e) => setJsonText(e.target.value)}
@@ -672,13 +573,121 @@ export default function QuizzesPage() {
                                         >
                                             {uploading ? "Загрузка..." : "Импортировать из текста"}
                                         </Button>
+                                        <p className="text-xs text-muted-foreground">
+                                            Вставьте готовый JSON. Для файлов используйте загрузку ниже.
+                                        </p>
                                     </div>
 
-                                    <div className="rounded-lg bg-muted/40 p-4">
-                                        <h4 className="mb-2 text-sm font-medium text-foreground">
-                                            Пример структуры JSON:
-                                        </h4>
-                                        <pre className="overflow-x-auto text-xs text-muted-foreground">
+                                    <div className="rounded-lg border border-border bg-muted/40 p-3">
+                                        <div className="flex flex-wrap items-center justify-between gap-3">
+                                            <div className="space-y-1">
+                                                <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                                                    <FileJson className="h-4 w-4" />
+                                                    Файл .json
+                                                </div>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Поддерживаются файлы только в формате JSON.
+                                                </p>
+                                            </div>
+                                            <Button
+                                                asChild
+                                                variant="outline"
+                                                size="sm"
+                                                className={
+                                                    uploading ? "pointer-events-none opacity-50" : ""
+                                                }
+                                            >
+                                                <label htmlFor="json-upload">Выбрать файл</label>
+                                            </Button>
+                                            <Input
+                                                id="json-upload"
+                                                type="file"
+                                                accept=".json"
+                                                className="hidden"
+                                                onChange={handleFileUpload}
+                                                disabled={uploading}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="rounded-xl border border-border bg-muted/40 p-4">
+                                        <div className="mb-3 text-sm font-medium text-foreground">
+                                            Привязка к книге (необязательно)
+                                        </div>
+                                        <div className="space-y-3">
+                                            <label className="text-sm text-muted-foreground">
+                                                Книга
+                                            </label>
+                                            <select
+                                                value={selectedBookId}
+                                                onChange={(e) => handleBookChange(e.target.value)}
+                                                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-foreground/60 focus:outline-none"
+                                                disabled={uploading || booksLoading}
+                                            >
+                                                <option value="">Не привязывать</option>
+                                                {books.map((book) => (
+                                                    <option key={book.id} value={book.id}>
+                                                        {book.title}
+                                                    </option>
+                                                ))}
+                                            </select>
+
+                                            {selectedBookId && (
+                                                <>
+                                                    <label className="text-sm text-muted-foreground">
+                                                        Глава
+                                                    </label>
+                                                    <Input
+                                                        value={chapterSearch}
+                                                        onChange={(e) =>
+                                                            setChapterSearch(e.target.value)
+                                                        }
+                                                        placeholder="Поиск главы"
+                                                        className="bg-background text-foreground placeholder:text-muted-foreground"
+                                                        disabled={uploading || chaptersLoading}
+                                                    />
+                                                    <ScrollArea className="h-40 rounded-lg border border-border bg-muted/40">
+                                                        <div className="p-2">
+                                                            {chaptersLoading ? (
+                                                                <div className="px-3 py-2 text-sm text-muted-foreground">
+                                                                    Загрузка глав...
+                                                                </div>
+                                                            ) : filteredChapters.length === 0 ? (
+                                                                <div className="px-3 py-2 text-sm text-muted-foreground">
+                                                                    Главы не найдены
+                                                                </div>
+                                                            ) : (
+                                                                filteredChapters.map((chapter) => (
+                                                                    <button
+                                                                        key={chapter.id}
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            setSelectedChapterId(chapter.id)
+                                                                        }
+                                                                        className={`flex w-full items-center rounded-md px-3 py-2 text-left text-sm transition-colors ${selectedChapterId === chapter.id
+                                                                                ? "bg-foreground/10 text-foreground"
+                                                                                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                                                                            }`}
+                                                                        style={{
+                                                                            paddingLeft: `${chapter.depth * 12 + 12}px`,
+                                                                        }}
+                                                                    >
+                                                                        {chapter.label}
+                                                                    </button>
+                                                                ))
+                                                            )}
+                                                        </div>
+                                                    </ScrollArea>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <details className="rounded-lg border border-border bg-muted/40 p-4">
+                                        <summary className="cursor-pointer text-sm font-medium text-foreground">
+                                            Пример структуры JSON
+                                        </summary>
+                                        <pre className="mt-3 overflow-x-auto text-xs text-muted-foreground">
                                             {`{
   "title": "Название теста",
   "questions": [{
@@ -695,7 +704,7 @@ export default function QuizzesPage() {
   }]
 }`}
                                         </pre>
-                                    </div>
+                                    </details>
                                 </div>
                             </DialogContent>
                         </Dialog>

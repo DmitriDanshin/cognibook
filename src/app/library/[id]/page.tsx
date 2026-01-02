@@ -29,7 +29,6 @@ import {
     Download,
     FileJson,
     Play,
-    Upload,
     Menu,
     X,
     ChevronRight,
@@ -667,7 +666,7 @@ export default function BookReaderPage({
                                             Загрузить JSON тест
                                         </DialogTitle>
                                         <DialogDescription className="text-muted-foreground">
-                                            Тест будет привязан к выбранной главе
+                                            Вставьте готовый JSON. Файл .json можно загрузить дополнительно
                                         </DialogDescription>
                                     </DialogHeader>
                                     <div className="mt-4 space-y-4">
@@ -688,31 +687,6 @@ export default function BookReaderPage({
                                                 </span>
                                             </div>
                                         </div>
-
-                                        <label
-                                            htmlFor="chapter-quiz-upload"
-                                            className="group flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/40 p-8 transition-all hover:border-foreground/50 hover:bg-muted/60"
-                                        >
-                                            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-foreground/10 text-foreground transition-transform group-hover:scale-110">
-                                                <Upload className="h-8 w-8" />
-                                            </div>
-                                            <span className="mb-2 text-lg font-medium text-foreground">
-                                                {quizUploading
-                                                    ? "Загрузка..."
-                                                    : "Нажмите для выбора файла"}
-                                            </span>
-                                            <span className="text-sm text-muted-foreground">
-                                                или перетащите файл сюда
-                                            </span>
-                                            <Input
-                                                id="chapter-quiz-upload"
-                                                type="file"
-                                                accept=".json"
-                                                className="hidden"
-                                                onChange={handleQuizFileUpload}
-                                                disabled={quizUploading}
-                                            />
-                                        </label>
 
                                         {quizValidationErrors.length > 0 && (
                                             <Alert
@@ -739,13 +713,10 @@ export default function BookReaderPage({
                                             </Alert>
                                         )}
 
-                                        <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-muted-foreground">
-                                            <span className="h-px flex-1 bg-border" />
-                                            или вставьте JSON
-                                            <span className="h-px flex-1 bg-border" />
-                                        </div>
-
                                         <div className="space-y-3">
+                                            <label className="text-sm font-medium text-foreground">
+                                                JSON теста
+                                            </label>
                                             <Textarea
                                                 value={quizJsonText}
                                                 onChange={(e) =>
@@ -765,6 +736,45 @@ export default function BookReaderPage({
                                                     ? "Загрузка..."
                                                     : "Импортировать из текста"}
                                             </Button>
+                                            <p className="text-xs text-muted-foreground">
+                                                Вставьте готовый JSON. Для файлов используйте загрузку ниже.
+                                            </p>
+                                        </div>
+
+                                        <div className="rounded-lg border border-border bg-muted/40 p-3">
+                                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                                <div className="space-y-1">
+                                                    <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                                                        <FileJson className="h-4 w-4" />
+                                                        Файл .json
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Поддерживаются файлы только в формате JSON.
+                                                    </p>
+                                                </div>
+                                                <Button
+                                                    asChild
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className={
+                                                        quizUploading
+                                                            ? "pointer-events-none opacity-50"
+                                                            : ""
+                                                    }
+                                                >
+                                                    <label htmlFor="chapter-quiz-upload">
+                                                        Выбрать файл
+                                                    </label>
+                                                </Button>
+                                                <Input
+                                                    id="chapter-quiz-upload"
+                                                    type="file"
+                                                    accept=".json"
+                                                    className="hidden"
+                                                    onChange={handleQuizFileUpload}
+                                                    disabled={quizUploading}
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                 </DialogContent>
