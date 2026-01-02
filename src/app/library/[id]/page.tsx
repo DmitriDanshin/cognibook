@@ -128,7 +128,20 @@ export default function BookReaderPage({
         const plainText = tempDiv.textContent || tempDiv.innerText;
 
         try {
-            await navigator.clipboard.writeText(plainText);
+            // Try modern clipboard API first
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(plainText);
+            } else {
+                // Fallback for non-secure contexts (HTTP)
+                const textArea = document.createElement("textarea");
+                textArea.value = plainText;
+                textArea.style.position = "fixed";
+                textArea.style.left = "-999999px";
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand("copy");
+                document.body.removeChild(textArea);
+            }
             toast.success("Текст скопирован в буфер обмена");
         } catch {
             toast.error("Не удалось скопировать текст");
