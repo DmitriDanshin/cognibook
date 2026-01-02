@@ -19,6 +19,7 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -54,6 +55,7 @@ export default function QuizzesPage() {
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [jsonText, setJsonText] = useState("");
     const [validationErrors, setValidationErrors] = useState<ValidationError[]>(
         []
     );
@@ -76,19 +78,9 @@ export default function QuizzesPage() {
         fetchQuizzes();
     }, [fetchQuizzes]);
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        if (!file.name.endsWith(".json")) {
-            toast.error("Поддерживаются только файлы JSON");
-            return;
-        }
-
+    const submitQuiz = async (formData: FormData) => {
         setUploading(true);
         setValidationErrors([]);
-        const formData = new FormData();
-        formData.append("file", file);
 
         try {
             const response = await fetch("/api/quizzes", {
@@ -111,6 +103,7 @@ export default function QuizzesPage() {
             toast.success("Тест успешно загружен");
             setIsDialogOpen(false);
             setValidationErrors([]);
+            setJsonText("");
             fetchQuizzes();
         } catch (error) {
             console.error("Error uploading quiz:", error);
@@ -118,6 +111,41 @@ export default function QuizzesPage() {
         } finally {
             setUploading(false);
         }
+    };
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.name.endsWith(".json")) {
+            toast.error("Поддерживаются только файлы JSON");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+        await submitQuiz(formData);
+    };
+
+    const handleTextUpload = async () => {
+        if (!jsonText.trim()) {
+            toast.error("Вставьте JSON");
+            return;
+        }
+
+        try {
+            JSON.parse(jsonText);
+        } catch {
+            toast.error("Невалидный JSON");
+            return;
+        }
+
+        const formData = new FormData();
+        const file = new File([jsonText], "quiz.json", {
+            type: "application/json",
+        });
+        formData.append("file", file);
+        await submitQuiz(formData);
     };
 
     const handleDelete = async (id: string, title: string) => {
@@ -219,7 +247,7 @@ export default function QuizzesPage() {
                                     Загрузить тест
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent className="max-w-lg border-slate-800 bg-slate-900">
+                            <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto border-slate-800 bg-slate-900">
                                 <DialogHeader>
                                     <DialogTitle className="text-white">
                                         Загрузить JSON тест
@@ -270,6 +298,30 @@ export default function QuizzesPage() {
                                             </AlertDescription>
                                         </Alert>
                                     )}
+
+                                    <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-slate-500">
+                                        <span className="h-px flex-1 bg-slate-800" />
+                                        или вставьте JSON
+                                        <span className="h-px flex-1 bg-slate-800" />
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <Textarea
+                                            value={jsonText}
+                                            onChange={(e) => setJsonText(e.target.value)}
+                                            placeholder="Вставьте JSON теста сюда"
+                                            className="min-h-40 max-h-60 resize-y overflow-y-auto bg-slate-950/40 text-slate-100 placeholder:text-slate-500"
+                                            disabled={uploading}
+                                        />
+                                        <Button
+                                            type="button"
+                                            className="w-full bg-indigo-600 hover:bg-indigo-500"
+                                            onClick={handleTextUpload}
+                                            disabled={uploading || !jsonText.trim()}
+                                        >
+                                            {uploading ? "Загрузка..." : "Импортировать из текста"}
+                                        </Button>
+                                    </div>
 
                                     <div className="rounded-lg bg-slate-800/50 p-4">
                                         <h4 className="mb-2 text-sm font-medium text-slate-300">
@@ -329,13 +381,22 @@ export default function QuizzesPage() {
                         {quizzes.map((quiz) => (
                             <Card
                                 key={quiz.id}
-                                className="group relative overflow-hidden border-slate-800 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur transition-all hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10"
+                                className="group relative min-w-0 overflow-hidden border-slate-800 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur transition-all hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10"
                             >
                                 <CardHeader>
                                     <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500/20 to-cyan-500/20 text-indigo-400 ring-1 ring-indigo-500/30 transition-transform group-hover:scale-110">
                                         <GraduationCap className="h-7 w-7" />
                                     </div>
-                                    <CardTitle className="line-clamp-2 text-xl text-white">
+                                    <CardTitle
+                                        className="min-h-[3.5rem] text-xl leading-snug text-white break-words"
+                                        title={quiz.title}
+                                        style={{
+                                            display: "-webkit-box",
+                                            WebkitBoxOrient: "vertical",
+                                            WebkitLineClamp: 2,
+                                            overflow: "hidden",
+                                        }}
+                                    >
                                         {quiz.title}
                                     </CardTitle>
                                 </CardHeader>
