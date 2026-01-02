@@ -1,0 +1,113 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ========================
+// EPUB Library Models
+// ========================
+
+model Book {
+  id          String   @id @default(cuid())
+  title       String
+  author      String?
+  coverPath   String?
+  filePath    String   @unique
+  fileSize    Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  chapters    Chapter[]
+  readingProgress ReadingProgress[]
+}
+
+model Chapter {
+  id        String   @id @default(cuid())
+  bookId    String
+  title     String
+  href      String
+  order     Int
+  parentId  String?
+  
+  book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  parent    Chapter? @relation("ChapterHierarchy", fields: [parentId], references: [id])
+  children  Chapter[] @relation("ChapterHierarchy")
+}
+
+model ReadingProgress {
+  id        String   @id @default(cuid())
+  bookId    String
+  chapterId String?
+  progress  Float    @default(0)
+  updatedAt DateTime @updatedAt
+  
+  book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  
+  @@unique([bookId])
+}
+
+// ========================
+// Quiz System Models
+// ========================
+
+model Quiz {
+  id          String   @id @default(cuid())
+  title       String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  questions   Question[]
+  attempts    QuizAttempt[]
+}
+
+model Question {
+  id             String   @id @default(cuid())
+  quizId         String
+  externalId     String   // ID from JSON
+  text           String
+  type           String   // "single" or "multiple"
+  order          Int
+  correctAnswers String   // JSON array of correct option IDs
+  
+  quiz           Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  options        Option[]
+}
+
+model Option {
+  id          String   @id @default(cuid())
+  questionId  String
+  externalId  String   // ID from JSON
+  text        String
+  explanation String
+  order       Int
+  
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model QuizAttempt {
+  id           String   @id @default(cuid())
+  quizId       String
+  score        Int
+  totalQuestions Int
+  completedAt  DateTime @default(now())
+  
+  quiz         Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  answers      AttemptAnswer[]
+}
+
+model AttemptAnswer {
+  id          String   @id @default(cuid())
+  attemptId   String
+  questionId  String
+  selectedIds String   // JSON array of selected option IDs
+  isCorrect   Boolean
+  
+  attempt     QuizAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+}
