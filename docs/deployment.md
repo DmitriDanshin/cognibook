@@ -88,6 +88,21 @@ cd /opt/cognibook
 docker-compose up -d --build
 ```
 
+### Логи в реальном времени (PowerShell)
+
+С локальной Windows-машины можно смотреть логи по SSH:
+
+```powershell
+# Список контейнеров на сервере
+powershell -ExecutionPolicy Bypass -File scripts/docker-logs.ps1 -List
+
+# Логи по умолчанию (cognibook)
+powershell -ExecutionPolicy Bypass -File scripts/docker-logs.ps1
+
+# Логи конкретного контейнера и глубина хвоста
+powershell -ExecutionPolicy Bypass -File scripts/docker-logs.ps1 -Container cognibook -Tail 500
+```
+
 ## Резервное копирование
 
 ```bash
