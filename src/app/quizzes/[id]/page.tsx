@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, use, useMemo } from "react";
+import { useState, useEffect, useCallback, use, useMemo, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +27,7 @@ import {
     Home,
     HelpCircle,
     Lightbulb,
+    ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -113,6 +114,8 @@ export default function QuizPage({
         {}
     );
     const storageKey = useMemo(() => `quiz-progress:${id}`, [id]);
+    const answersScrollRef = useRef<HTMLDivElement | null>(null);
+    const [isQuoteExpanded, setIsQuoteExpanded] = useState(false);
 
     const fetchQuiz = useCallback(async () => {
         try {
@@ -260,6 +263,20 @@ export default function QuizPage({
         quiz,
         storageKey,
     ]);
+
+    useEffect(() => {
+        setIsQuoteExpanded(false);
+        if (typeof window === "undefined") return;
+        if (!window.matchMedia("(max-width: 640px)").matches) return;
+        const viewport = answersScrollRef.current?.querySelector(
+            "[data-slot=\"scroll-area-viewport\"]"
+        ) as HTMLElement | null;
+        if (viewport) {
+            viewport.scrollTo({ top: 0, behavior: "auto" });
+            return;
+        }
+        window.scrollTo({ top: 0, behavior: "auto" });
+    }, [currentQuestionIndex]);
 
     const currentQuestion = quiz?.questions[currentQuestionIndex];
     const currentAnswer = currentQuestion
@@ -497,11 +514,12 @@ export default function QuizPage({
     }
 
     return (
-        <div className="min-h-dvh bg-background">
+        <div className="min-h-dvh bg-background flex flex-col">
             {/* Header */}
+
             <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-xl">
-                <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-                    <div className="flex h-16 items-center justify-between">
+                <div className="mx-auto max-w-5xl px-3 sm:px-6 lg:px-8">
+                    <div className="flex h-14 items-center justify-between sm:h-16">
                         <div className="flex items-center gap-4">
                             <Link href="/quizzes">
                                 <Button
@@ -513,16 +531,17 @@ export default function QuizPage({
                                 </Button>
                             </Link>
                             <div>
-                                <h1 className="line-clamp-1 text-lg font-bold text-foreground">
+                                <h1 className="line-clamp-1 text-base font-bold text-foreground sm:text-lg">
                                     {quiz.title}
                                 </h1>
-                                <div className="text-sm text-muted-foreground">
+                                <div className="text-xs text-muted-foreground sm:text-sm">
                                     Вопрос {currentQuestionIndex + 1} из {quiz.questions.length}
                                 </div>
                             </div>
                         </div>
                         <Badge
                             variant="secondary"
+                            className="text-xs sm:text-sm"
                         >
                             {checkedQuestions.size} / {quiz.questions.length} проверено
                         </Badge>
@@ -541,14 +560,14 @@ export default function QuizPage({
             </div>
 
             {/* Main Content */}
-            <main className="mx-auto max-w-5xl px-4 pt-6 pb-[calc(8rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-8 lg:px-8">
+            <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col min-h-0 overflow-hidden px-3 pt-3 pb-3 sm:px-6 sm:pt-8 lg:px-8">
                 {currentQuestion && (
-                    <Card className="border-border">
-                        <CardHeader>
-                            <div className="mb-2 flex items-center gap-2">
+                    <Card className="border-border flex-1 min-h-0 !flex !flex-col overflow-hidden !gap-2 sm:!gap-3 !py-0">
+                        <CardHeader className="gap-1.5 px-4 sm:gap-2 sm:px-6 flex-shrink-0 pt-4 sm:pt-6">
+                            <div className="mb-1.5 flex flex-wrap items-center gap-2 sm:mb-2">
                                 <Badge
                                     variant="outline"
-                                    className="border-border text-muted-foreground"
+                                    className="border-border text-[11px] text-muted-foreground sm:text-xs"
                                 >
                                     {currentQuestion.type === "single"
                                         ? "Один ответ"
@@ -556,11 +575,10 @@ export default function QuizPage({
                                 </Badge>
                                 {isCurrentChecked && (
                                     <Badge
-                                        className={
-                                            currentResult?.isCorrect
-                                                ? "bg-green-500/20 text-green-600 dark:text-green-400"
-                                                : "bg-red-500/20 text-red-600 dark:text-red-400"
-                                        }
+                                        className={`${currentResult?.isCorrect
+                                            ? "bg-green-500/20 text-green-600 dark:text-green-400"
+                                            : "bg-red-500/20 text-red-600 dark:text-red-400"
+                                            } text-[11px] sm:text-xs`}
                                     >
                                         {currentResult?.isCorrect ? (
                                             <>
@@ -574,147 +592,165 @@ export default function QuizPage({
                                     </Badge>
                                 )}
                             </div>
-                            <CardTitle className="text-lg text-foreground">
-                                <HelpCircle className="mb-1 mr-2 inline h-5 w-5 text-muted-foreground" />
+                            <CardTitle className="text-base leading-snug text-foreground sm:text-lg">
+                                <HelpCircle className="mb-0.5 mr-1.5 inline h-4 w-4 text-muted-foreground sm:mb-1 sm:mr-2 sm:h-5 sm:w-5" />
                                 {currentQuestion.text}
                             </CardTitle>
                             {isCurrentChecked && quoteLink && currentQuestion?.quote && (
-                                <div className="mt-4 rounded-lg border border-border bg-muted/40 p-4">
-                                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                        Цитата из книги
-                                    </div>
-                                    <Link
-                                        href={quoteLink}
-                                        className="block text-sm text-foreground underline decoration-muted-foreground/60 underline-offset-2 transition-colors hover:decoration-foreground"
-                                        title={`Открыть главу: ${quiz?.chapter?.title}`}
+                                <div className="mt-3 sm:mt-4">
+                                    <button
+                                        onClick={() => setIsQuoteExpanded(!isQuoteExpanded)}
+                                        className="flex w-full items-center justify-between rounded-lg border border-border bg-muted/40 p-3 text-left transition-colors hover:bg-muted/60 sm:p-4"
                                     >
-                                        "{currentQuestion.quote}"
-                                    </Link>
+                                        <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-xs">
+                                            <Lightbulb className="mr-1.5 inline h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                                            Цитата из источника
+                                        </div>
+                                        <ChevronDown
+                                            className={`h-4 w-4 text-muted-foreground transition-transform sm:h-5 sm:w-5 ${
+                                                isQuoteExpanded ? "rotate-180" : ""
+                                            }`}
+                                        />
+                                    </button>
+                                    {isQuoteExpanded && (
+                                        <div className="mt-1 rounded-lg border border-border bg-muted/20 p-3 sm:p-4">
+                                            <Link
+                                                href={quoteLink}
+                                                className="block text-xs text-foreground underline decoration-muted-foreground/60 underline-offset-2 transition-colors hover:decoration-foreground sm:text-sm"
+                                                title={`Открыть главу: ${quiz?.chapter?.title}`}
+                                            >
+                                                "{currentQuestion.quote}"
+                                            </Link>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </CardHeader>
-                        <CardContent className="pb-6">
-                            <div className="space-y-3">
-                                {currentQuestion.type === "single" ? (
-                                    <RadioGroup
-                                        value={currentAnswer[0] || ""}
-                                        onValueChange={handleSingleAnswer}
-                                        className="space-y-4"
-                                        disabled={isCurrentChecked}
-                                    >
-                                        {currentQuestion.options.map((option) => (
-                                            <div key={option.id} className="space-y-2">
-                                                <label
-                                                    className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all ${isCurrentChecked
-                                                        ? getOptionStyle(option)
-                                                        : currentAnswer.includes(option.externalId)
-                                                            ? "border-foreground/60 bg-foreground/5"
-                                                            : "border-border hover:border-foreground/30 hover:bg-muted/40"
-                                                        }`}
-                                                >
-                                                    <RadioGroupItem
-                                                        value={option.externalId}
-                                                        className="mt-0.5"
-                                                    />
-                                                    <div className="flex-1">
-                                                        <span className="text-base text-foreground">{option.text}</span>
-                                                        {isCurrentChecked && (
-                                                            <div className="mt-2 flex items-start gap-2">
-                                                                {currentResult?.correctAnswers.includes(
+                        <ScrollArea className="flex-1 min-h-0">
+                            <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6 pt-0">
+                                <div className="space-y-0">
+                                        {currentQuestion.type === "single" ? (
+                                        <RadioGroup
+                                            value={currentAnswer[0] || ""}
+                                            onValueChange={handleSingleAnswer}
+                                            className="!gap-1 sm:!gap-1.5"
+                                            disabled={isCurrentChecked}
+                                        >
+                                            {currentQuestion.options.map((option) => (
+                                                <div key={option.id} className="space-y-2">
+                                                    <label
+                                                        className={`flex cursor-pointer items-start gap-1.5 rounded-lg border p-2.5 transition-all sm:gap-2.5 sm:p-3.5 ${isCurrentChecked
+                                                            ? getOptionStyle(option)
+                                                            : currentAnswer.includes(option.externalId)
+                                                                ? "border-foreground/60 bg-foreground/5"
+                                                                : "border-border hover:border-foreground/30 hover:bg-muted/40"
+                                                            }`}
+                                                    >
+                                                        <RadioGroupItem
+                                                            value={option.externalId}
+                                                            className="mt-0.5"
+                                                        />
+                                                        <div className="flex-1">
+                                                            <span className="text-sm text-foreground sm:text-base">
+                                                                {option.text}
+                                                            </span>
+                                                            {isCurrentChecked && (
+                                                                currentResult?.correctAnswers.includes(
                                                                     option.externalId
-                                                                ) ? (
-                                                                    <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" />
-                                                                ) : currentResult?.selectedIds.includes(
+                                                                ) ||
+                                                                currentResult?.selectedIds.includes(
                                                                     option.externalId
-                                                                ) ? (
-                                                                    <XCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-600 dark:text-red-400" />
-                                                                ) : (
-                                                                    <Lightbulb className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                                                                )}
-                                                                <span
-                                                                    className={`text-sm ${currentResult?.correctAnswers.includes(
+                                                                )
+                                                            ) && (
+                                                                <div className="mt-1.5 flex items-start gap-1.5 sm:mt-2 sm:gap-2">
+                                                                    {currentResult?.correctAnswers.includes(
                                                                         option.externalId
-                                                                    )
-                                                                        ? "text-green-600 dark:text-green-400"
-                                                                        : currentResult?.selectedIds.includes(
+                                                                    ) ? (
+                                                                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-green-600 dark:text-green-400 sm:h-4 sm:w-4" />
+                                                                    ) : (
+                                                                        <XCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-red-600 dark:text-red-400 sm:h-4 sm:w-4" />
+                                                                    )}
+                                                                    <span
+                                                                        className={`text-xs sm:text-sm ${currentResult?.correctAnswers.includes(
                                                                             option.externalId
                                                                         )
-                                                                            ? "text-red-600 dark:text-red-400"
-                                                                            : "text-muted-foreground"
-                                                                        }`}
-                                                                >
-                                                                    {option.explanation}
-                                                                </span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </label>
-                                            </div>
-                                        ))}
-                                    </RadioGroup>
-                                ) : (
-                                    <div className="space-y-4">
-                                        {currentQuestion.options.map((option) => (
-                                            <div key={option.id} className="space-y-2">
-                                                <label
-                                                    className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all ${isCurrentChecked
-                                                        ? getOptionStyle(option)
-                                                        : currentAnswer.includes(option.externalId)
-                                                            ? "border-foreground/60 bg-foreground/5"
-                                                            : "border-border hover:border-foreground/30 hover:bg-muted/40"
-                                                        }`}
-                                                >
-                                                    <Checkbox
-                                                        checked={currentAnswer.includes(option.externalId)}
-                                                        onCheckedChange={(checked) =>
-                                                            handleMultipleAnswer(
-                                                                option.externalId,
-                                                                checked as boolean
-                                                            )
-                                                        }
-                                                        disabled={isCurrentChecked}
-                                                        className="mt-0.5"
-                                                    />
-                                                    <div className="flex-1">
-                                                        <span className="text-base text-foreground">{option.text}</span>
-                                                        {isCurrentChecked && (
-                                                            <div className="mt-2 flex items-start gap-2">
-                                                                {currentResult?.correctAnswers.includes(
+                                                                            ? "text-green-600 dark:text-green-400"
+                                                                            : "text-red-600 dark:text-red-400"
+                                                                            }`}
+                                                                    >
+                                                                        {option.explanation}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </label>
+                                                </div>
+                                            ))}
+                                        </RadioGroup>
+                                        ) : (
+                                        <div className="grid !gap-1 sm:!gap-1.5">
+                                            {currentQuestion.options.map((option) => (
+                                                <div key={option.id} className="space-y-2">
+                                                    <label
+                                                        className={`flex cursor-pointer items-start gap-1.5 rounded-lg border p-2.5 transition-all sm:gap-2.5 sm:p-3.5 ${isCurrentChecked
+                                                            ? getOptionStyle(option)
+                                                            : currentAnswer.includes(option.externalId)
+                                                                ? "border-foreground/60 bg-foreground/5"
+                                                                : "border-border hover:border-foreground/30 hover:bg-muted/40"
+                                                            }`}
+                                                    >
+                                                        <Checkbox
+                                                            checked={currentAnswer.includes(option.externalId)}
+                                                            onCheckedChange={(checked) =>
+                                                                handleMultipleAnswer(
+                                                                    option.externalId,
+                                                                    checked as boolean
+                                                                )
+                                                            }
+                                                            disabled={isCurrentChecked}
+                                                            className="mt-0.5"
+                                                        />
+                                                        <div className="flex-1">
+                                                            <span className="text-sm text-foreground sm:text-base">
+                                                                {option.text}
+                                                            </span>
+                                                            {isCurrentChecked && (
+                                                                currentResult?.correctAnswers.includes(
                                                                     option.externalId
-                                                                ) ? (
-                                                                    <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" />
-                                                                ) : currentResult?.selectedIds.includes(
+                                                                ) ||
+                                                                currentResult?.selectedIds.includes(
                                                                     option.externalId
-                                                                ) ? (
-                                                                    <XCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-600 dark:text-red-400" />
-                                                                ) : (
-                                                                    <Lightbulb className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                                                                )}
-                                                                <span
-                                                                    className={`text-sm ${currentResult?.correctAnswers.includes(
+                                                                )
+                                                            ) && (
+                                                                <div className="mt-1.5 flex items-start gap-1.5 sm:mt-2 sm:gap-2">
+                                                                    {currentResult?.correctAnswers.includes(
                                                                         option.externalId
-                                                                    )
-                                                                        ? "text-green-600 dark:text-green-400"
-                                                                        : currentResult?.selectedIds.includes(
+                                                                    ) ? (
+                                                                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-green-600 dark:text-green-400 sm:h-4 sm:w-4" />
+                                                                    ) : (
+                                                                        <XCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-red-600 dark:text-red-400 sm:h-4 sm:w-4" />
+                                                                    )}
+                                                                    <span
+                                                                        className={`text-xs sm:text-sm ${currentResult?.correctAnswers.includes(
                                                                             option.externalId
                                                                         )
-                                                                            ? "text-red-600 dark:text-red-400"
-                                                                            : "text-muted-foreground"
-                                                                        }`}
-                                                                >
-                                                                    {option.explanation}
-                                                                </span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </label>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-
-                        </CardContent>
+                                                                            ? "text-green-600 dark:text-green-400"
+                                                                            : "text-red-600 dark:text-red-400"
+                                                                            }`}
+                                                                    >
+                                                                        {option.explanation}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </label>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        )}
+                                </div>
+                            </CardContent>
+                        </ScrollArea>
                     </Card>
                 )}
             </main>
@@ -722,7 +758,7 @@ export default function QuizPage({
             {/* Sticky Navigation Footer - всегда виден внизу экрана */}
             {currentQuestion && (
                 <footer className="sticky bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur-xl pb-[env(safe-area-inset-bottom)]">
-                    <div className="mx-auto max-w-5xl px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
+                    <div className="mx-auto max-w-5xl px-3 py-2.5 sm:px-6 sm:py-4 lg:px-8">
                         {/* Кнопки навигации */}
                         <div className="flex items-center justify-between gap-4">
                             {/* Кнопка Назад - слева */}
@@ -741,8 +777,7 @@ export default function QuizPage({
                                 {!isCurrentChecked ? (
                                     <Button
                                         onClick={handleCheckAnswer}
-                                        size="lg"
-                                        className="gap-2 px-6 sm:px-8"
+                                        className="gap-2 px-5 sm:h-10 sm:px-8"
                                     >
                                         <CheckCircle2 className="h-4 w-4" />
                                         Проверить
@@ -750,8 +785,7 @@ export default function QuizPage({
                                 ) : currentQuestionIndex === quiz.questions.length - 1 ? (
                                     <Button
                                         onClick={handleFinishQuiz}
-                                        size="lg"
-                                        className="gap-2 px-6 sm:px-8"
+                                        className="gap-2 px-5 sm:h-10 sm:px-8"
                                     >
                                         <Trophy className="h-4 w-4" />
                                         <span className="hidden sm:inline">Завершить тест</span>
@@ -773,7 +807,7 @@ export default function QuizPage({
                         </div>
 
                         {/* Question Navigation Dots */}
-                        <div className="mt-3 flex flex-wrap justify-center gap-2">
+                        <div className="mt-2.5 flex flex-wrap justify-center gap-1.5 sm:mt-3 sm:gap-2">
                             {quiz.questions.map((q, index) => {
                                 const result = checkedQuestions.get(q.id);
                                 let dotClass = "bg-border hover:bg-muted-foreground/40";
@@ -795,7 +829,7 @@ export default function QuizPage({
                                     <button
                                         key={q.id}
                                         onClick={() => setCurrentQuestionIndex(index)}
-                                        className={`h-3 w-3 rounded-full transition-all ${dotClass}`}
+                                        className={`h-2.5 w-2.5 rounded-full transition-all sm:h-3 sm:w-3 ${dotClass}`}
                                         title={`Вопрос ${index + 1}`}
                                     />
                                 );
