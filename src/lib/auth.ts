@@ -11,6 +11,14 @@ const JWT_SECRET = new TextEncoder().encode(
 const COOKIE_NAME = "auth-token";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
 
+function isSecureRequest(request: NextRequest): boolean {
+    const forwardedProto = request.headers.get("x-forwarded-proto");
+    if (forwardedProto) {
+        return forwardedProto.split(",")[0].trim() === "https";
+    }
+    return request.nextUrl.protocol === "https:";
+}
+
 export interface UserPayload {
     userId: string;
     email: string;
@@ -44,20 +52,31 @@ export async function verifyToken(token: string): Promise<UserPayload | null> {
     }
 }
 
-export async function setAuthCookie(token: string): Promise<void> {
-    const cookieStore = await cookies();
-    cookieStore.set(COOKIE_NAME, token, {
+export function setAuthCookie(
+    response: NextResponse,
+    token: string,
+    request: NextRequest
+): void {
+    response.cookies.set(COOKIE_NAME, token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: isSecureRequest(request),
         sameSite: "lax",
         maxAge: COOKIE_MAX_AGE,
         path: "/",
     });
 }
 
-export async function removeAuthCookie(): Promise<void> {
-    const cookieStore = await cookies();
-    cookieStore.delete(COOKIE_NAME);
+export function removeAuthCookie(
+    response: NextResponse,
+    request: NextRequest
+): void {
+    response.cookies.set(COOKIE_NAME, "", {
+        httpOnly: true,
+        secure: isSecureRequest(request),
+        sameSite: "lax",
+        maxAge: 0,
+        path: "/",
+    });
 }
 
 export async function getCurrentUser(): Promise<UserPayload | null> {

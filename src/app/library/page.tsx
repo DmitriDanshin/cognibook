@@ -247,7 +247,11 @@ export default function LibraryPage() {
                             >
                                 <CardHeader className="pb-2">
                                     {/* Book Cover */}
-                                    <div className="mb-4 flex aspect-[3/4] items-center justify-center overflow-hidden rounded-lg bg-muted/60 transition-transform group-hover:scale-[1.02]">
+                                    <Link
+                                        href={`/library/${book.id}`}
+                                        className="mb-4 flex aspect-[3/4] items-center justify-center overflow-hidden rounded-lg bg-muted/60 transition-transform group-hover:scale-[1.02]"
+                                        aria-label={`Открыть книгу ${book.title}`}
+                                    >
                                         {book.coverPath ? (
                                             <img
                                                 src={`/api${book.coverPath}`}
@@ -257,7 +261,7 @@ export default function LibraryPage() {
                                         ) : (
                                             <FileText className="h-16 w-16 text-muted-foreground" />
                                         )}
-                                    </div>
+                                    </Link>
                                     <CardTitle
                                         className="min-h-[3rem] text-lg leading-snug text-foreground break-words"
                                         title={book.title}

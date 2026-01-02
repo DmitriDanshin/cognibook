@@ -38,14 +38,14 @@ export async function POST(request: NextRequest) {
             email: user.email,
         });
 
-        await setAuthCookie(token);
-
-        return NextResponse.json({
+        const response = NextResponse.json({
             user: {
                 id: user.id,
                 email: user.email,
             },
         });
+        setAuthCookie(response, token, request);
+        return response;
     } catch (error) {
         console.error("Login error:", error);
         return NextResponse.json(

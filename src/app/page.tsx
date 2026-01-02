@@ -5,13 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BookOpen, GraduationCap, ArrowRight, Sparkles, LogOut } from "lucide-react";
+import { BookOpen, GraduationCap, ArrowRight, Sparkles, LogOut, Menu, X } from "lucide-react";
 import { toast } from "sonner";
 
 export default function HomePage() {
   const router = useRouter();
   const [user, setUser] = useState<{ email: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -21,10 +22,14 @@ export default function HomePage() {
   }, []);
 
   async function handleLogout() {
+    if (!confirm("Вы действительно хотите выйти?")) {
+      return;
+    }
     await fetch("/api/auth/logout", { method: "POST" });
     setUser(null);
     toast.success("Вы вышли из аккаунта");
     router.refresh();
+    setIsMenuOpen(false);
   }
 
   return (
@@ -41,11 +46,11 @@ export default function HomePage() {
                 CogniBook
               </span>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="hidden items-center gap-2 sm:flex sm:gap-4">
               <Link href="/library">
                 <Button
                   variant="ghost"
-                  className="text-muted-foreground hover:text-foreground hover:bg-muted"
+                  className="px-2 text-muted-foreground hover:text-foreground hover:bg-muted sm:px-4"
                 >
                   Библиотека
                 </Button>
@@ -53,7 +58,7 @@ export default function HomePage() {
               <Link href="/quizzes">
                 <Button
                   variant="ghost"
-                  className="text-muted-foreground hover:text-foreground hover:bg-muted"
+                  className="px-2 text-muted-foreground hover:text-foreground hover:bg-muted sm:px-4"
                 >
                   Тесты
                 </Button>
@@ -63,20 +68,78 @@ export default function HomePage() {
                   <Button
                     variant="outline"
                     onClick={handleLogout}
-                    className="gap-2"
+                    className="gap-2 px-2 sm:px-4"
+                    aria-label="Выйти"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span className="hidden sm:inline">Выйти</span>
+                  </Button>
+                ) : (
+                  <Link href="/login">
+                    <Button className="px-3 sm:px-4">Войти</Button>
+                  </Link>
+                )
+              )}
+            </div>
+            <div className="flex items-center sm:hidden">
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={isMenuOpen ? "Закрыть меню" : "Открыть меню"}
+                aria-expanded={isMenuOpen}
+                aria-controls="mobile-nav"
+                onClick={() => setIsMenuOpen((open) => !open)}
+              >
+                {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </Button>
+            </div>
+          </div>
+        </div>
+        {isMenuOpen && (
+          <div
+            id="mobile-nav"
+            className="border-t border-border bg-background/95 backdrop-blur sm:hidden"
+          >
+            <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-3">
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
+                asChild
+              >
+                <Link href="/library" onClick={() => setIsMenuOpen(false)}>
+                  Библиотека
+                </Link>
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
+                asChild
+              >
+                <Link href="/quizzes" onClick={() => setIsMenuOpen(false)}>
+                  Тесты
+                </Link>
+              </Button>
+              {!isLoading && (
+                user ? (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start gap-2"
+                    onClick={handleLogout}
                   >
                     <LogOut className="h-4 w-4" />
                     Выйти
                   </Button>
                 ) : (
-                  <Link href="/login">
-                    <Button>Войти</Button>
-                  </Link>
+                  <Button className="w-full justify-start" asChild>
+                    <Link href="/login" onClick={() => setIsMenuOpen(false)}>
+                      Войти
+                    </Link>
+                  </Button>
                 )
               )}
             </div>
           </div>
-        </div>
+        )}
       </nav>
 
       {/* Hero Section */}
