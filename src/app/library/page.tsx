@@ -234,7 +234,7 @@ export default function LibraryPage() {
                         {books.map((book) => (
                             <Card
                                 key={book.id}
-                                className="group relative overflow-hidden border-slate-800 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur transition-all hover:border-violet-500/50 hover:shadow-lg hover:shadow-violet-500/10"
+                                className="group relative min-w-0 overflow-hidden border-slate-800 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur transition-all hover:border-violet-500/50 hover:shadow-lg hover:shadow-violet-500/10"
                             >
                                 <CardHeader className="pb-2">
                                     {/* Book Cover */}
@@ -249,7 +249,10 @@ export default function LibraryPage() {
                                             <FileText className="h-16 w-16 text-slate-500" />
                                         )}
                                     </div>
-                                    <CardTitle className="text-lg text-white" title={book.title}>
+                                    <CardTitle
+                                        className="min-h-[3rem] text-lg leading-snug text-white line-clamp-2 break-words"
+                                        title={book.title}
+                                    >
                                         {book.title}
                                     </CardTitle>
                                 </CardHeader>

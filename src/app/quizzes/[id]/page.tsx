@@ -361,7 +361,7 @@ export default function QuizPage({
             </div>
 
             {/* Main Content */}
-            <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+            <main className="mx-auto max-w-4xl px-4 py-8 pb-32 sm:px-6 lg:px-8">
                 {currentQuestion && (
                     <Card className="border-slate-800 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur">
                         <CardHeader>
@@ -520,33 +520,34 @@ export default function QuizPage({
                                 )}
                             </div>
                         </CardContent>
-                        <CardFooter className="flex flex-wrap justify-between gap-4 border-t border-slate-700/50 bg-slate-900/50 pt-6">
-                            <div className="flex gap-2">
-                                <Button
-                                    variant="outline"
-                                    onClick={handlePreviousQuestion}
-                                    disabled={currentQuestionIndex === 0}
-                                    className="gap-2 border-slate-700 text-slate-300"
-                                >
-                                    <ArrowLeft className="h-4 w-4" />
-                                    Назад
-                                </Button>
-                                {currentQuestionIndex < quiz.questions.length - 1 ? (
-                                    <Button
-                                        variant="outline"
-                                        onClick={handleNextQuestion}
-                                        className="gap-2 border-slate-700 text-slate-300"
-                                    >
-                                        Далее
-                                        <ArrowRight className="h-4 w-4" />
-                                    </Button>
-                                ) : null}
-                            </div>
-                            <div className="flex gap-2">
+                    </Card>
+                )}
+            </main>
+
+            {/* Sticky Navigation Footer - всегда виден внизу экрана */}
+            {currentQuestion && (
+                <footer className="sticky bottom-0 z-40 border-t border-white/10 bg-slate-900/95 backdrop-blur-xl">
+                    <div className="mx-auto max-w-4xl px-4 py-4 sm:px-6 lg:px-8">
+                        {/* Кнопки навигации */}
+                        <div className="flex items-center justify-between gap-4">
+                            {/* Кнопка Назад - слева */}
+                            <Button
+                                variant="outline"
+                                onClick={handlePreviousQuestion}
+                                disabled={currentQuestionIndex === 0}
+                                className="gap-2 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-50"
+                            >
+                                <ArrowLeft className="h-4 w-4" />
+                                <span className="hidden sm:inline">Назад</span>
+                            </Button>
+
+                            {/* Кнопка Проверить/Завершить - по центру */}
+                            <div className="flex-1 flex justify-center">
                                 {!isCurrentChecked ? (
                                     <Button
                                         onClick={handleCheckAnswer}
-                                        className="gap-2 bg-indigo-600 hover:bg-indigo-500"
+                                        size="lg"
+                                        className="gap-2 bg-indigo-600 px-6 sm:px-8 hover:bg-indigo-500"
                                     >
                                         <CheckCircle2 className="h-4 w-4" />
                                         Проверить
@@ -554,46 +555,59 @@ export default function QuizPage({
                                 ) : currentQuestionIndex === quiz.questions.length - 1 ? (
                                     <Button
                                         onClick={handleFinishQuiz}
-                                        className="gap-2 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500"
+                                        size="lg"
+                                        className="gap-2 bg-gradient-to-r from-emerald-600 to-cyan-600 px-6 sm:px-8 hover:from-emerald-500 hover:to-cyan-500"
                                     >
                                         <Trophy className="h-4 w-4" />
-                                        Завершить тест
+                                        <span className="hidden sm:inline">Завершить тест</span>
+                                        <span className="sm:hidden">Завершить</span>
                                     </Button>
                                 ) : null}
                             </div>
-                        </CardFooter>
-                    </Card>
-                )}
 
-                {/* Question Navigation Dots */}
-                <div className="mt-6 flex flex-wrap justify-center gap-2">
-                    {quiz.questions.map((q, index) => {
-                        const result = checkedQuestions.get(q.id);
-                        let dotClass = "bg-slate-700 hover:bg-slate-600";
+                            {/* Кнопка Далее - справа */}
+                            <Button
+                                variant="outline"
+                                onClick={handleNextQuestion}
+                                disabled={currentQuestionIndex >= quiz.questions.length - 1}
+                                className="gap-2 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-50"
+                            >
+                                <span className="hidden sm:inline">Далее</span>
+                                <ArrowRight className="h-4 w-4" />
+                            </Button>
+                        </div>
 
-                        if (result) {
-                            dotClass = result.isCorrect
-                                ? "bg-emerald-500"
-                                : "bg-red-500";
-                        } else if (answers.has(q.id)) {
-                            dotClass = "bg-indigo-500";
-                        }
+                        {/* Question Navigation Dots */}
+                        <div className="mt-3 flex flex-wrap justify-center gap-2">
+                            {quiz.questions.map((q, index) => {
+                                const result = checkedQuestions.get(q.id);
+                                let dotClass = "bg-slate-700 hover:bg-slate-600";
 
-                        if (index === currentQuestionIndex) {
-                            dotClass += " ring-2 ring-white ring-offset-2 ring-offset-slate-900";
-                        }
+                                if (result) {
+                                    dotClass = result.isCorrect
+                                        ? "bg-emerald-500"
+                                        : "bg-red-500";
+                                } else if (answers.has(q.id)) {
+                                    dotClass = "bg-indigo-500";
+                                }
 
-                        return (
-                            <button
-                                key={q.id}
-                                onClick={() => setCurrentQuestionIndex(index)}
-                                className={`h-3 w-3 rounded-full transition-all ${dotClass}`}
-                                title={`Вопрос ${index + 1}`}
-                            />
-                        );
-                    })}
-                </div>
-            </main>
+                                if (index === currentQuestionIndex) {
+                                    dotClass += " ring-2 ring-white ring-offset-2 ring-offset-slate-900";
+                                }
+
+                                return (
+                                    <button
+                                        key={q.id}
+                                        onClick={() => setCurrentQuestionIndex(index)}
+                                        className={`h-3 w-3 rounded-full transition-all ${dotClass}`}
+                                        title={`Вопрос ${index + 1}`}
+                                    />
+                                );
+                            })}
+                        </div>
+                    </div>
+                </footer>
+            )}
         </div>
     );
 }
