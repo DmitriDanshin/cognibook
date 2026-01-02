@@ -54,4 +54,11 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
+# Copy entrypoint script
+COPY --from=builder /app/scripts/docker-entrypoint.sh ./
+USER root
+RUN chmod +x docker-entrypoint.sh
+USER nextjs
+
+ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["node", "server.js"]

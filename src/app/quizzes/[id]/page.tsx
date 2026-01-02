@@ -258,8 +258,8 @@ export default function QuizPage({
                         <CardHeader className="text-center">
                             <div
                                 className={`mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full ${isPassing
-                                        ? "bg-emerald-500/20 text-emerald-400"
-                                        : "bg-amber-500/20 text-amber-400"
+                                    ? "bg-emerald-500/20 text-emerald-400"
+                                    : "bg-amber-500/20 text-amber-400"
                                     }`}
                             >
                                 {isPassing ? (
@@ -284,8 +284,8 @@ export default function QuizPage({
                             <div className="mb-4 h-3 overflow-hidden rounded-full bg-slate-700">
                                 <div
                                     className={`h-full rounded-full transition-all duration-1000 ${isPassing
-                                            ? "bg-gradient-to-r from-emerald-500 to-cyan-500"
-                                            : "bg-gradient-to-r from-amber-500 to-orange-500"
+                                        ? "bg-gradient-to-r from-emerald-500 to-cyan-500"
+                                        : "bg-gradient-to-r from-amber-500 to-orange-500"
                                         }`}
                                     style={{ width: `${percentage}%` }}
                                 />
@@ -399,23 +399,23 @@ export default function QuizPage({
                                 {currentQuestion.text}
                             </CardTitle>
                         </CardHeader>
-                        <CardContent>
-                            <ScrollArea className="max-h-[50vh]">
+                        <CardContent className="pb-6">
+                            <div className="space-y-3">
                                 {currentQuestion.type === "single" ? (
                                     <RadioGroup
                                         value={currentAnswer[0] || ""}
                                         onValueChange={handleSingleAnswer}
-                                        className="space-y-3"
+                                        className="space-y-4"
                                         disabled={isCurrentChecked}
                                     >
                                         {currentQuestion.options.map((option) => (
                                             <div key={option.id} className="space-y-2">
                                                 <label
                                                     className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all ${isCurrentChecked
-                                                            ? getOptionStyle(option)
-                                                            : currentAnswer.includes(option.externalId)
-                                                                ? "border-indigo-500 bg-indigo-500/10"
-                                                                : "border-slate-700 hover:border-slate-600 hover:bg-slate-800/50"
+                                                        ? getOptionStyle(option)
+                                                        : currentAnswer.includes(option.externalId)
+                                                            ? "border-indigo-500 bg-indigo-500/10"
+                                                            : "border-slate-700 hover:border-slate-600 hover:bg-slate-800/50"
                                                         }`}
                                                 >
                                                     <RadioGroupItem
@@ -441,12 +441,12 @@ export default function QuizPage({
                                                                     className={`text-sm ${currentResult?.correctAnswers.includes(
                                                                         option.externalId
                                                                     )
-                                                                            ? "text-emerald-300"
-                                                                            : currentResult?.selectedIds.includes(
-                                                                                option.externalId
-                                                                            )
-                                                                                ? "text-red-300"
-                                                                                : "text-slate-400"
+                                                                        ? "text-emerald-300"
+                                                                        : currentResult?.selectedIds.includes(
+                                                                            option.externalId
+                                                                        )
+                                                                            ? "text-red-300"
+                                                                            : "text-slate-400"
                                                                         }`}
                                                                 >
                                                                     {option.explanation}
@@ -459,15 +459,15 @@ export default function QuizPage({
                                         ))}
                                     </RadioGroup>
                                 ) : (
-                                    <div className="space-y-3">
+                                    <div className="space-y-4">
                                         {currentQuestion.options.map((option) => (
                                             <div key={option.id} className="space-y-2">
                                                 <label
                                                     className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all ${isCurrentChecked
-                                                            ? getOptionStyle(option)
-                                                            : currentAnswer.includes(option.externalId)
-                                                                ? "border-indigo-500 bg-indigo-500/10"
-                                                                : "border-slate-700 hover:border-slate-600 hover:bg-slate-800/50"
+                                                        ? getOptionStyle(option)
+                                                        : currentAnswer.includes(option.externalId)
+                                                            ? "border-indigo-500 bg-indigo-500/10"
+                                                            : "border-slate-700 hover:border-slate-600 hover:bg-slate-800/50"
                                                         }`}
                                                 >
                                                     <Checkbox
@@ -500,12 +500,12 @@ export default function QuizPage({
                                                                     className={`text-sm ${currentResult?.correctAnswers.includes(
                                                                         option.externalId
                                                                     )
-                                                                            ? "text-emerald-300"
-                                                                            : currentResult?.selectedIds.includes(
-                                                                                option.externalId
-                                                                            )
-                                                                                ? "text-red-300"
-                                                                                : "text-slate-400"
+                                                                        ? "text-emerald-300"
+                                                                        : currentResult?.selectedIds.includes(
+                                                                            option.externalId
+                                                                        )
+                                                                            ? "text-red-300"
+                                                                            : "text-slate-400"
                                                                         }`}
                                                                 >
                                                                     {option.explanation}
@@ -518,9 +518,9 @@ export default function QuizPage({
                                         ))}
                                     </div>
                                 )}
-                            </ScrollArea>
+                            </div>
                         </CardContent>
-                        <CardFooter className="flex flex-wrap justify-between gap-4">
+                        <CardFooter className="flex flex-wrap justify-between gap-4 border-t border-slate-700/50 bg-slate-900/50 pt-6">
                             <div className="flex gap-2">
                                 <Button
                                     variant="outline"
