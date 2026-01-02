@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -22,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
     GraduationCap,
     Upload,
@@ -43,6 +45,36 @@ interface Quiz {
     createdAt: string;
     _count: { questions: number; attempts: number };
     attempts: { score: number; totalQuestions: number; completedAt: string }[];
+    chapter?: {
+        id: string;
+        title: string;
+        order: number;
+        bookId: string;
+        book: {
+            id: string;
+            title: string;
+            author: string | null;
+        };
+    } | null;
+}
+
+interface Book {
+    id: string;
+    title: string;
+    author: string | null;
+}
+
+interface Chapter {
+    id: string;
+    title: string;
+    parentId: string | null;
+    order: number;
+}
+
+interface ChapterOption {
+    id: string;
+    label: string;
+    depth: number;
 }
 
 interface ValidationError {
@@ -51,11 +83,20 @@ interface ValidationError {
 }
 
 export default function QuizzesPage() {
+    const router = useRouter();
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+    const [books, setBooks] = useState<Book[]>([]);
+    const [booksLoading, setBooksLoading] = useState(true);
+    const [chapters, setChapters] = useState<Chapter[]>([]);
+    const [chaptersLoading, setChaptersLoading] = useState(false);
+    const [selectedBookId, setSelectedBookId] = useState("");
+    const [selectedChapterId, setSelectedChapterId] = useState("");
+    const [chapterSearch, setChapterSearch] = useState("");
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [jsonText, setJsonText] = useState("");
+    const [selectedSection, setSelectedSection] = useState("");
     const [validationErrors, setValidationErrors] = useState<ValidationError[]>(
         []
     );
@@ -78,11 +119,100 @@ export default function QuizzesPage() {
         fetchQuizzes();
     }, [fetchQuizzes]);
 
+    const fetchBooks = useCallback(async () => {
+        try {
+            const response = await fetch("/api/books");
+            if (!response.ok) throw new Error("Failed to fetch books");
+            const data = await response.json();
+            setBooks(data);
+        } catch (error) {
+            console.error("Error fetching books:", error);
+            toast.error("Не удалось загрузить книги");
+        } finally {
+            setBooksLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchBooks();
+    }, [fetchBooks]);
+
+    const fetchChapters = useCallback(async (bookId: string) => {
+        setChaptersLoading(true);
+        try {
+            const response = await fetch(`/api/books/${bookId}`);
+            if (!response.ok) throw new Error("Failed to fetch chapters");
+            const data = await response.json();
+            setChapters(data.chapters || []);
+        } catch (error) {
+            console.error("Error fetching chapters:", error);
+            toast.error("Не удалось загрузить главы");
+        } finally {
+            setChaptersLoading(false);
+        }
+    }, []);
+
+    const handleBookChange = async (bookId: string) => {
+        setSelectedBookId(bookId);
+        setSelectedChapterId("");
+        setChapterSearch("");
+        if (!bookId) {
+            setChapters([]);
+            return;
+        }
+        await fetchChapters(bookId);
+    };
+
+    const buildChapterOptions = useCallback((chapterList: Chapter[]) => {
+        const map = new Map<string, Chapter>();
+        chapterList.forEach((chapter) => map.set(chapter.id, chapter));
+
+        const getDepth = (chapter: Chapter) => {
+            let depth = 0;
+            let current = chapter;
+            while (current.parentId) {
+                const parent = map.get(current.parentId);
+                if (!parent) break;
+                depth += 1;
+                current = parent;
+            }
+            return depth;
+        };
+
+        const getLabel = (chapter: Chapter) => {
+            const titles: string[] = [chapter.title];
+            let current = chapter;
+            while (current.parentId) {
+                const parent = map.get(current.parentId);
+                if (!parent) break;
+                titles.push(parent.title);
+                current = parent;
+            }
+            return titles.reverse().join(" / ");
+        };
+
+        return chapterList.map((chapter) => ({
+            id: chapter.id,
+            label: getLabel(chapter),
+            depth: getDepth(chapter),
+        }));
+    }, []);
+
     const submitQuiz = async (formData: FormData) => {
         setUploading(true);
         setValidationErrors([]);
 
         try {
+            if (selectedBookId && !selectedChapterId) {
+                toast.error("Выберите главу для выбранной книги");
+                return;
+            }
+
+            if (selectedBookId) {
+                formData.append("bookId", selectedBookId);
+                formData.append("chapterId", selectedChapterId);
+            }
+
             const response = await fetch("/api/quizzes", {
                 method: "POST",
                 body: formData,
@@ -95,7 +225,7 @@ export default function QuizzesPage() {
                     setValidationErrors(data.details);
                     toast.error("Ошибка валидации JSON");
                 } else {
-                    throw new Error(data.error || "Failed to upload");
+                    toast.error(data.error || "Не удалось загрузить тест");
                 }
                 return;
             }
@@ -104,6 +234,11 @@ export default function QuizzesPage() {
             setIsDialogOpen(false);
             setValidationErrors([]);
             setJsonText("");
+            const createdQuizId = data?.id as string | undefined;
+            if (createdQuizId) {
+                router.push(`/quizzes/${createdQuizId}`);
+                return;
+            }
             fetchQuizzes();
         } catch (error) {
             console.error("Error uploading quiz:", error);
@@ -216,6 +351,158 @@ export default function QuizzesPage() {
         }
     };
 
+    const chapterOptions = buildChapterOptions(chapters);
+    const filteredChapters = chapterOptions.filter((chapter) =>
+        chapter.label.toLowerCase().includes(chapterSearch.trim().toLowerCase())
+    );
+
+    const bookGroups = useMemo(() => {
+        const map = new Map<
+            string,
+            { book: { id: string; title: string; author: string | null }; quizzes: Quiz[] }
+        >();
+
+        quizzes.forEach((quiz) => {
+            if (!quiz.chapter?.book) return;
+            const bookId = quiz.chapter.book.id;
+            if (!map.has(bookId)) {
+                map.set(bookId, {
+                    book: {
+                        id: quiz.chapter.book.id,
+                        title: quiz.chapter.book.title,
+                        author: quiz.chapter.book.author ?? null,
+                    },
+                    quizzes: [],
+                });
+            }
+            map.get(bookId)!.quizzes.push(quiz);
+        });
+
+        const groups = Array.from(map.values());
+        groups.forEach((group) => {
+            group.quizzes.sort((a, b) => {
+                const orderA = a.chapter?.order ?? 0;
+                const orderB = b.chapter?.order ?? 0;
+                if (orderA !== orderB) return orderA - orderB;
+                return a.title.localeCompare(b.title);
+            });
+        });
+
+        return groups.sort((a, b) => a.book.title.localeCompare(b.book.title));
+    }, [quizzes]);
+
+    const otherQuizzes = useMemo(
+        () => quizzes.filter((quiz) => !quiz.chapter),
+        [quizzes]
+    );
+
+    useEffect(() => {
+        if (selectedSection === "other") {
+            if (otherQuizzes.length > 0) return;
+        } else if (
+            selectedSection &&
+            bookGroups.some((group) => group.book.id === selectedSection)
+        ) {
+            return;
+        }
+
+        if (bookGroups.length > 0) {
+            setSelectedSection(bookGroups[0].book.id);
+        } else if (otherQuizzes.length > 0) {
+            setSelectedSection("other");
+        } else {
+            setSelectedSection("");
+        }
+    }, [bookGroups, otherQuizzes, selectedSection]);
+
+    const selectedBookGroup = bookGroups.find(
+        (group) => group.book.id === selectedSection
+    );
+    const showingOther = selectedSection === "other";
+
+    const renderQuizCard = (quiz: Quiz, mode: "chapter" | "other") => {
+        const baseTitle =
+            mode === "chapter"
+                ? quiz.chapter?.title || quiz.title
+                : quiz.title;
+        const heading =
+            mode === "chapter" ? `Глава: ${baseTitle}` : baseTitle;
+        const showSubtitle =
+            mode === "chapter" &&
+            quiz.chapter?.title &&
+            quiz.title !== quiz.chapter.title;
+
+        return (
+            <Card
+                key={quiz.id}
+                className="group relative min-w-0 overflow-hidden border-slate-800 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur transition-all hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10"
+            >
+                <CardHeader>
+                    <CardTitle
+                        className="text-lg leading-snug text-white break-words"
+                        title={heading}
+                        style={{
+                            display: "-webkit-box",
+                            WebkitBoxOrient: "vertical",
+                            WebkitLineClamp: 2,
+                            overflow: "hidden",
+                        }}
+                    >
+                        {heading}
+                    </CardTitle>
+                    {showSubtitle && (
+                        <p className="mt-2 text-sm text-slate-400">{quiz.title}</p>
+                    )}
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                        <Badge
+                            variant="secondary"
+                            className="gap-1 bg-slate-700/50 text-slate-300"
+                        >
+                            <HelpCircle className="h-3 w-3" />
+                            {quiz._count.questions} вопросов
+                        </Badge>
+                        {getLastAttemptBadge(quiz)}
+                        {mode === "other" && (
+                            <Badge
+                                variant="secondary"
+                                className="bg-slate-700/50 text-slate-300"
+                            >
+                                Без книги
+                            </Badge>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-slate-400">
+                        <Clock className="h-4 w-4" />
+                        <span>Создан {formatDate(quiz.createdAt)}</span>
+                    </div>
+                    {quiz._count.attempts > 0 && (
+                        <div className="text-sm text-slate-500">
+                            Попыток: {quiz._count.attempts}
+                        </div>
+                    )}
+                </CardContent>
+                <CardFooter className="gap-2">
+                    <Link href={`/quizzes/${quiz.id}`} className="flex-1">
+                        <Button className="w-full bg-indigo-600 hover:bg-indigo-500">
+                            <Play className="mr-2 h-4 w-4" />
+                            Начать тест
+                        </Button>
+                    </Link>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="border-slate-700 text-slate-400 hover:border-red-500 hover:bg-red-500/10 hover:text-red-400"
+                        onClick={() => handleDelete(quiz.id, quiz.title)}
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
+                </CardFooter>
+            </Card>
+        );
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
             {/* Header */}
@@ -252,14 +539,87 @@ export default function QuizzesPage() {
                                     <DialogTitle className="text-white">
                                         Загрузить JSON тест
                                     </DialogTitle>
-                                    <DialogDescription className="text-slate-400">
-                                        Выберите файл .json с тестом в правильном формате
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <div className="mt-4 space-y-4">
-                                    <label
-                                        htmlFor="json-upload"
-                                        className="group flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-700 bg-slate-800/50 p-8 transition-all hover:border-indigo-500 hover:bg-slate-800"
+                                <DialogDescription className="text-slate-400">
+                                    Выберите файл .json с тестом в правильном формате
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="mt-4 space-y-4">
+                                <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+                                    <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                        Привязка к книге
+                                    </div>
+                                    <div className="space-y-3">
+                                        <label className="text-sm text-slate-300">
+                                            Книга
+                                        </label>
+                                        <select
+                                            value={selectedBookId}
+                                            onChange={(e) => handleBookChange(e.target.value)}
+                                            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 focus:border-indigo-500 focus:outline-none"
+                                            disabled={uploading || booksLoading}
+                                        >
+                                            <option value="">Не привязывать</option>
+                                            {books.map((book) => (
+                                                <option key={book.id} value={book.id}>
+                                                    {book.title}
+                                                </option>
+                                            ))}
+                                        </select>
+
+                                        {selectedBookId && (
+                                            <>
+                                                <label className="text-sm text-slate-300">
+                                                    Глава
+                                                </label>
+                                                <Input
+                                                    value={chapterSearch}
+                                                    onChange={(e) =>
+                                                        setChapterSearch(e.target.value)
+                                                    }
+                                                    placeholder="Поиск главы"
+                                                    className="bg-slate-900 text-slate-100 placeholder:text-slate-500"
+                                                    disabled={uploading || chaptersLoading}
+                                                />
+                                                <ScrollArea className="h-40 rounded-lg border border-slate-800 bg-slate-900/60">
+                                                    <div className="p-2">
+                                                        {chaptersLoading ? (
+                                                            <div className="px-3 py-2 text-sm text-slate-500">
+                                                                Загрузка глав...
+                                                            </div>
+                                                        ) : filteredChapters.length === 0 ? (
+                                                            <div className="px-3 py-2 text-sm text-slate-500">
+                                                                Главы не найдены
+                                                            </div>
+                                                        ) : (
+                                                            filteredChapters.map((chapter) => (
+                                                                <button
+                                                                    key={chapter.id}
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        setSelectedChapterId(chapter.id)
+                                                                    }
+                                                                    className={`flex w-full items-center rounded-md px-3 py-2 text-left text-sm transition-colors ${selectedChapterId === chapter.id
+                                                                            ? "bg-indigo-500/20 text-indigo-200"
+                                                                            : "text-slate-300 hover:bg-slate-800 hover:text-slate-100"
+                                                                        }`}
+                                                                    style={{
+                                                                        paddingLeft: `${chapter.depth * 12 + 12}px`,
+                                                                    }}
+                                                                >
+                                                                    {chapter.label}
+                                                                </button>
+                                                            ))
+                                                        )}
+                                                    </div>
+                                                </ScrollArea>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <label
+                                    htmlFor="json-upload"
+                                    className="group flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-700 bg-slate-800/50 p-8 transition-all hover:border-indigo-500 hover:bg-slate-800"
                                     >
                                         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-400 transition-transform group-hover:scale-110">
                                             <FileJson className="h-8 w-8" />
@@ -333,6 +693,7 @@ export default function QuizzesPage() {
   "questions": [{
     "id": "q1",
     "text": "Вопрос?",
+    "quote": "Цитата из текста (опционально)",
     "type": "single",
     "options": [{
       "id": "opt1",
@@ -377,68 +738,79 @@ export default function QuizzesPage() {
                         </Button>
                     </div>
                 ) : (
-                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                        {quizzes.map((quiz) => (
-                            <Card
-                                key={quiz.id}
-                                className="group relative min-w-0 overflow-hidden border-slate-800 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur transition-all hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10"
-                            >
-                                <CardHeader>
-                                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500/20 to-cyan-500/20 text-indigo-400 ring-1 ring-indigo-500/30 transition-transform group-hover:scale-110">
-                                        <GraduationCap className="h-7 w-7" />
+                    <div className="space-y-8">
+                        <div className="flex flex-wrap gap-3">
+                            {bookGroups.map((group) => (
+                                <button
+                                    key={group.book.id}
+                                    type="button"
+                                    onClick={() => setSelectedSection(group.book.id)}
+                                    className={`w-full max-w-full rounded-xl border px-4 py-3 text-left transition-all sm:w-56 ${selectedSection === group.book.id
+                                            ? "border-indigo-500/70 bg-indigo-500/10 text-white"
+                                            : "border-slate-800 bg-slate-900/60 text-slate-300 hover:border-indigo-500/40 hover:bg-slate-800"
+                                        }`}
+                                    title={group.book.title}
+                                >
+                                    <div className="line-clamp-2 text-sm font-semibold break-words">
+                                        {group.book.title}
                                     </div>
-                                    <CardTitle
-                                        className="min-h-[3.5rem] text-xl leading-snug text-white break-words"
-                                        title={quiz.title}
-                                        style={{
-                                            display: "-webkit-box",
-                                            WebkitBoxOrient: "vertical",
-                                            WebkitLineClamp: 2,
-                                            overflow: "hidden",
-                                        }}
+                                    <div className="mt-1 text-xs text-slate-400">
+                                        {group.quizzes.length} тестов
+                                    </div>
+                                </button>
+                            ))}
+                            {otherQuizzes.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedSection("other")}
+                                    className={`w-full max-w-full rounded-xl border px-4 py-3 text-left transition-all sm:w-56 ${selectedSection === "other"
+                                            ? "border-indigo-500/70 bg-indigo-500/10 text-white"
+                                            : "border-slate-800 bg-slate-900/60 text-slate-300 hover:border-indigo-500/40 hover:bg-slate-800"
+                                        }`}
+                                >
+                                    <div className="text-sm font-semibold">Другие тесты</div>
+                                    <div className="mt-1 text-xs text-slate-400">
+                                        {otherQuizzes.length} тестов
+                                    </div>
+                                </button>
+                            )}
+                        </div>
+
+                        {selectedBookGroup && (
+                            <section className="space-y-4">
+                                <div>
+                                    <h2
+                                        className="text-xl font-semibold text-white break-words line-clamp-2"
+                                        title={selectedBookGroup.book.title}
                                     >
-                                        {quiz.title}
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-3">
-                                    <div className="flex flex-wrap gap-2">
-                                        <Badge
-                                            variant="secondary"
-                                            className="gap-1 bg-slate-700/50 text-slate-300"
-                                        >
-                                            <HelpCircle className="h-3 w-3" />
-                                            {quiz._count.questions} вопросов
-                                        </Badge>
-                                        {getLastAttemptBadge(quiz)}
-                                    </div>
-                                    <div className="flex items-center gap-2 text-sm text-slate-400">
-                                        <Clock className="h-4 w-4" />
-                                        <span>Создан {formatDate(quiz.createdAt)}</span>
-                                    </div>
-                                    {quiz._count.attempts > 0 && (
-                                        <div className="text-sm text-slate-500">
-                                            Попыток: {quiz._count.attempts}
+                                        {selectedBookGroup.book.title}
+                                    </h2>
+                                    {selectedBookGroup.book.author && (
+                                        <div className="text-sm text-slate-400">
+                                            {selectedBookGroup.book.author}
                                         </div>
                                     )}
-                                </CardContent>
-                                <CardFooter className="gap-2">
-                                    <Link href={`/quizzes/${quiz.id}`} className="flex-1">
-                                        <Button className="w-full bg-indigo-600 hover:bg-indigo-500">
-                                            <Play className="mr-2 h-4 w-4" />
-                                            Начать тест
-                                        </Button>
-                                    </Link>
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        className="border-slate-700 text-slate-400 hover:border-red-500 hover:bg-red-500/10 hover:text-red-400"
-                                        onClick={() => handleDelete(quiz.id, quiz.title)}
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </CardFooter>
-                            </Card>
-                        ))}
+                                </div>
+                                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                                    {selectedBookGroup.quizzes.map((quiz) =>
+                                        renderQuizCard(quiz, "chapter")
+                                    )}
+                                </div>
+                            </section>
+                        )}
+
+                        {showingOther && (
+                            <section className="space-y-4">
+                                <h2 className="text-xl font-semibold text-white">
+                                    Другие тесты
+                                </h2>
+                                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                                    {otherQuizzes.map((quiz) =>
+                                        renderQuizCard(quiz, "other")
+                                    )}
+                                </div>
+                            </section>
+                        )}
                     </div>
                 )}
             </main>

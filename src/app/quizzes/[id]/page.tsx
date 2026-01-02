@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, use } from "react";
+import { useState, useEffect, useCallback, use, useMemo } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,6 +42,7 @@ interface Question {
     id: string;
     externalId: string;
     text: string;
+    quote?: string | null;
     type: "single" | "multiple";
     correctAnswers: string;
     options: Option[];
@@ -51,6 +52,15 @@ interface Quiz {
     id: string;
     title: string;
     questions: Question[];
+    chapter?: {
+        id: string;
+        title: string;
+        bookId: string;
+        book: {
+            id: string;
+            title: string;
+        };
+    } | null;
 }
 
 interface Answer {
@@ -63,6 +73,25 @@ interface QuestionResult {
     correctAnswers: string[];
     selectedIds: string[];
 }
+
+interface SavedQuizProgress {
+    version: number;
+    currentQuestionIndex: number;
+    answers: Record<string, string[]>;
+    checkedQuestions: Record<string, QuestionResult>;
+    isFinished: boolean;
+    finalScore: { score: number; total: number };
+    optionOrder: Record<string, string[]>;
+}
+
+const shuffleArray = <T,>(items: T[]): T[] => {
+    const shuffled = [...items];
+    for (let i = shuffled.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+};
 
 export default function QuizPage({
     params,
@@ -79,13 +108,62 @@ export default function QuizPage({
     >(new Map());
     const [isFinished, setIsFinished] = useState(false);
     const [finalScore, setFinalScore] = useState({ score: 0, total: 0 });
+    const [isStateRestored, setIsStateRestored] = useState(false);
+    const [optionOrderMap, setOptionOrderMap] = useState<Record<string, string[]>>(
+        {}
+    );
+    const storageKey = useMemo(() => `quiz-progress:${id}`, [id]);
 
     const fetchQuiz = useCallback(async () => {
         try {
             const response = await fetch(`/api/quizzes/${id}`);
             if (!response.ok) throw new Error("Failed to fetch quiz");
-            const data = await response.json();
-            setQuiz(data);
+            const data = (await response.json()) as Quiz;
+            const savedRaw = localStorage.getItem(storageKey);
+            let savedOrder: Record<string, string[]> | null = null;
+
+            if (savedRaw) {
+                try {
+                    const parsed = JSON.parse(savedRaw) as SavedQuizProgress;
+                    if (parsed?.version === 1 && parsed.optionOrder) {
+                        savedOrder = parsed.optionOrder;
+                    }
+                } catch {
+                    savedOrder = null;
+                }
+            }
+
+            const nextOrder: Record<string, string[]> = {};
+            const orderedQuestions = data.questions.map((question) => {
+                const order = savedOrder?.[question.id];
+                const optionMap = new Map(
+                    question.options.map((option) => [option.externalId, option])
+                );
+                const hasValidOrder =
+                    Array.isArray(order) &&
+                    order.length === question.options.length &&
+                    order.every((optionId) => optionMap.has(optionId));
+
+                if (hasValidOrder) {
+                    nextOrder[question.id] = order;
+                    return {
+                        ...question,
+                        options: order.map((optionId) => optionMap.get(optionId)!),
+                    };
+                }
+
+                const shuffledOptions = shuffleArray(question.options);
+                nextOrder[question.id] = shuffledOptions.map(
+                    (option) => option.externalId
+                );
+                return {
+                    ...question,
+                    options: shuffledOptions,
+                };
+            });
+
+            setOptionOrderMap(nextOrder);
+            setQuiz({ ...data, questions: orderedQuestions });
         } catch (error) {
             console.error("Error fetching quiz:", error);
             toast.error("Не удалось загрузить тест");
@@ -98,6 +176,91 @@ export default function QuizPage({
         fetchQuiz();
     }, [fetchQuiz]);
 
+    useEffect(() => {
+        if (!quiz) return;
+        const raw = localStorage.getItem(storageKey);
+        if (!raw) {
+            setIsStateRestored(true);
+            return;
+        }
+
+        try {
+            const parsed = JSON.parse(raw) as SavedQuizProgress;
+            if (!parsed || parsed.version !== 1) {
+                setIsStateRestored(true);
+                return;
+            }
+
+            const questionIds = new Set(quiz.questions.map((q) => q.id));
+            const answersEntries = Object.entries(parsed.answers || {}).filter(
+                ([questionId, selected]) =>
+                    questionIds.has(questionId) &&
+                    Array.isArray(selected) &&
+                    selected.every((id) => typeof id === "string")
+            );
+            const checkedEntries = Object.entries(parsed.checkedQuestions || {}).filter(
+                ([questionId, result]) =>
+                    questionIds.has(questionId) &&
+                    result &&
+                    Array.isArray(result.correctAnswers) &&
+                    Array.isArray(result.selectedIds)
+            );
+
+            const restoredAnswers = new Map<string, string[]>(answersEntries);
+            const restoredChecked = new Map<string, QuestionResult>(
+                checkedEntries.map(([questionId, result]) => [
+                    questionId,
+                    {
+                        isCorrect: Boolean(result.isCorrect),
+                        correctAnswers: result.correctAnswers,
+                        selectedIds: result.selectedIds,
+                    },
+                ])
+            );
+
+            const safeIndex = Math.min(
+                Math.max(parsed.currentQuestionIndex || 0, 0),
+                Math.max(quiz.questions.length - 1, 0)
+            );
+
+            setAnswers(restoredAnswers);
+            setCheckedQuestions(restoredChecked);
+            setCurrentQuestionIndex(safeIndex);
+            setIsFinished(Boolean(parsed.isFinished));
+            setFinalScore(
+                parsed.finalScore || { score: 0, total: quiz.questions.length }
+            );
+        } catch {
+            // ignore corrupted localStorage
+        } finally {
+            setIsStateRestored(true);
+        }
+    }, [quiz, storageKey]);
+
+    useEffect(() => {
+        if (!quiz || !isStateRestored) return;
+        const payload: SavedQuizProgress = {
+            version: 1,
+            currentQuestionIndex,
+            answers: Object.fromEntries(answers),
+            checkedQuestions: Object.fromEntries(checkedQuestions),
+            isFinished,
+            finalScore,
+            optionOrder: optionOrderMap,
+        };
+        localStorage.setItem(storageKey, JSON.stringify(payload));
+    }, [
+        answers,
+        checkedQuestions,
+        currentQuestionIndex,
+        finalScore,
+        isFinished,
+        isStateRestored,
+        optionOrderMap,
+        quiz,
+        storageKey,
+    ]);
+
     const currentQuestion = quiz?.questions[currentQuestionIndex];
     const currentAnswer = currentQuestion
         ? answers.get(currentQuestion.id) || []
@@ -106,6 +269,10 @@ export default function QuizPage({
         ? checkedQuestions.get(currentQuestion.id)
         : undefined;
     const isCurrentChecked = !!currentResult;
+    const quoteLink =
+        currentQuestion?.quote && quiz?.chapter
+            ? `/library/${quiz.chapter.bookId}?chapterId=${quiz.chapter.id}&quote=${encodeURIComponent(currentQuestion.quote)}`
+            : null;
 
     const handleSingleAnswer = (optionId: string) => {
         if (!currentQuestion || isCurrentChecked) return;
@@ -209,6 +376,20 @@ export default function QuizPage({
         setCurrentQuestionIndex(0);
         setIsFinished(false);
         setFinalScore({ score: 0, total: 0 });
+        localStorage.removeItem(storageKey);
+        setQuiz((current) => {
+            if (!current) return current;
+            const nextOrder: Record<string, string[]> = {};
+            const nextQuestions = current.questions.map((question) => {
+                const shuffledOptions = shuffleArray(question.options);
+                nextOrder[question.id] = shuffledOptions.map(
+                    (option) => option.externalId
+                );
+                return { ...question, options: shuffledOptions };
+            });
+            setOptionOrderMap(nextOrder);
+            return { ...current, questions: nextQuestions };
+        });
     };
 
     const getOptionStyle = (option: Option) => {
@@ -319,7 +500,7 @@ export default function QuizPage({
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
             {/* Header */}
             <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-900/80 backdrop-blur-xl">
-                <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+                <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
                     <div className="flex h-16 items-center justify-between">
                         <div className="flex items-center gap-4">
                             <Link href="/quizzes">
@@ -361,7 +542,7 @@ export default function QuizPage({
             </div>
 
             {/* Main Content */}
-            <main className="mx-auto max-w-4xl px-4 py-8 pb-32 sm:px-6 lg:px-8">
+            <main className="mx-auto max-w-5xl px-4 py-8 pb-32 sm:px-6 lg:px-8">
                 {currentQuestion && (
                     <Card className="border-slate-800 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur">
                         <CardHeader>
@@ -394,10 +575,26 @@ export default function QuizPage({
                                     </Badge>
                                 )}
                             </div>
-                            <CardTitle className="text-xl text-white">
+                            <CardTitle className="text-lg text-white">
                                 <HelpCircle className="mb-1 mr-2 inline h-5 w-5 text-indigo-400" />
                                 {currentQuestion.text}
                             </CardTitle>
+                            {isCurrentChecked && quoteLink && currentQuestion?.quote && (
+                                <div className="mt-4 rounded-lg border border-slate-700 bg-slate-900/40 p-4">
+                                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                        Цитата из книги
+                                    </div>
+                                    <a
+                                        href={quoteLink}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="block text-sm text-indigo-300 transition-colors hover:text-indigo-200"
+                                        title={`Открыть главу: ${quiz?.chapter?.title}`}
+                                    >
+                                        “{currentQuestion.quote}”
+                                    </a>
+                                </div>
+                            )}
                         </CardHeader>
                         <CardContent className="pb-6">
                             <div className="space-y-3">
@@ -423,7 +620,7 @@ export default function QuizPage({
                                                         className="mt-0.5"
                                                     />
                                                     <div className="flex-1">
-                                                        <span className="text-white">{option.text}</span>
+                                <span className="text-sm text-white">{option.text}</span>
                                                         {isCurrentChecked && (
                                                             <div className="mt-2 flex items-start gap-2">
                                                                 {currentResult?.correctAnswers.includes(
@@ -482,7 +679,7 @@ export default function QuizPage({
                                                         className="mt-0.5"
                                                     />
                                                     <div className="flex-1">
-                                                        <span className="text-white">{option.text}</span>
+                                                        <span className="text-sm text-white">{option.text}</span>
                                                         {isCurrentChecked && (
                                                             <div className="mt-2 flex items-start gap-2">
                                                                 {currentResult?.correctAnswers.includes(
@@ -519,6 +716,7 @@ export default function QuizPage({
                                     </div>
                                 )}
                             </div>
+                            
                         </CardContent>
                     </Card>
                 )}
@@ -527,7 +725,7 @@ export default function QuizPage({
             {/* Sticky Navigation Footer - всегда виден внизу экрана */}
             {currentQuestion && (
                 <footer className="sticky bottom-0 z-40 border-t border-white/10 bg-slate-900/95 backdrop-blur-xl">
-                    <div className="mx-auto max-w-4xl px-4 py-4 sm:px-6 lg:px-8">
+                    <div className="mx-auto max-w-5xl px-4 py-4 sm:px-6 lg:px-8">
                         {/* Кнопки навигации */}
                         <div className="flex items-center justify-between gap-4">
                             {/* Кнопка Назад - слева */}

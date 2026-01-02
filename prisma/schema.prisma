@@ -39,6 +39,7 @@ model Chapter {
   book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
   parent    Chapter? @relation("ChapterHierarchy", fields: [parentId], references: [id])
   children  Chapter[] @relation("ChapterHierarchy")
+  quiz      Quiz?
 }
 
 model ReadingProgress {
@@ -62,9 +63,11 @@ model Quiz {
   title       String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  chapterId   String?  @unique
   
   questions   Question[]
   attempts    QuizAttempt[]
+  chapter     Chapter? @relation(fields: [chapterId], references: [id], onDelete: SetNull)
 }
 
 model Question {
@@ -72,6 +75,7 @@ model Question {
   quizId         String
   externalId     String   // ID from JSON
   text           String
+  quote          String?
   type           String   // "single" or "multiple"
   order          Int
   correctAnswers String   // JSON array of correct option IDs

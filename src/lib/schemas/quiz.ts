@@ -11,6 +11,7 @@ export const OptionSchema = z.object({
 export const QuestionSchema = z.object({
     id: z.union([z.string(), z.number()]).transform((val) => String(val)),
     text: z.string().min(1, "Текст вопроса обязателен"),
+    quote: z.string().min(1, "Цитата (quote) не должна быть пустой").optional(),
     type: z.enum(["single", "multiple"]),
     options: z.array(OptionSchema).min(2, "Минимум 2 варианта ответа"),
     correctAnswers: z.array(z.string()).min(1, "Укажите правильные ответы (ID)"),

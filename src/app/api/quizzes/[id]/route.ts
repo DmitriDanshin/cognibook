@@ -18,6 +18,11 @@ export async function GET(
                         },
                     },
                 },
+                chapter: {
+                    include: {
+                        book: true,
+                    },
+                },
                 attempts: {
                     orderBy: { completedAt: "desc" },
                 },
