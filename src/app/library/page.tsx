@@ -250,8 +250,14 @@ export default function LibraryPage() {
                                         )}
                                     </div>
                                     <CardTitle
-                                        className="min-h-[3rem] text-lg leading-snug text-white line-clamp-2 break-words"
+                                        className="min-h-[3rem] text-lg leading-snug text-white break-words"
                                         title={book.title}
+                                        style={{
+                                            display: "-webkit-box",
+                                            WebkitBoxOrient: "vertical",
+                                            WebkitLineClamp: 2,
+                                            overflow: "hidden",
+                                        }}
                                     >
                                         {book.title}
                                     </CardTitle>
