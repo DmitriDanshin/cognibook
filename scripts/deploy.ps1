@@ -39,7 +39,7 @@ try {
 }
 
 Write-Host "Uploading project archive..."
-scp $archivePath "$target:/tmp/cognibook-deploy.tar"
+scp $archivePath "${target}:/tmp/cognibook-deploy.tar"
 
 Write-Host "Extracting archive on server..."
 ssh $target "mkdir -p $AppDir && tar -xf /tmp/cognibook-deploy.tar -C $AppDir && rm -f /tmp/cognibook-deploy.tar"
