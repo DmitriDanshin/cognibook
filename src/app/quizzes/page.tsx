@@ -312,10 +312,7 @@ export default function QuizzesPage() {
     const getLastAttemptBadge = (quiz: Quiz) => {
         if (quiz.attempts.length === 0) {
             return (
-                <Badge
-                    variant="secondary"
-                    className="gap-1 bg-slate-700/50 text-slate-300"
-                >
+                <Badge variant="secondary" className="gap-1">
                     <HelpCircle className="h-3 w-3" />
                     Новый
                 </Badge>
@@ -329,21 +326,21 @@ export default function QuizzesPage() {
 
         if (percentage >= 80) {
             return (
-                <Badge className="gap-1 bg-emerald-500/20 text-emerald-400">
+                <Badge className="gap-1 bg-foreground/10 text-foreground">
                     <Trophy className="h-3 w-3" />
                     {percentage}%
                 </Badge>
             );
         } else if (percentage >= 50) {
             return (
-                <Badge className="gap-1 bg-amber-500/20 text-amber-400">
+                <Badge className="gap-1 bg-muted/60 text-foreground">
                     <CheckCircle2 className="h-3 w-3" />
                     {percentage}%
                 </Badge>
             );
         } else {
             return (
-                <Badge className="gap-1 bg-red-500/20 text-red-400">
+                <Badge className="gap-1 bg-border text-muted-foreground">
                     <AlertCircle className="h-3 w-3" />
                     {percentage}%
                 </Badge>
@@ -435,11 +432,11 @@ export default function QuizzesPage() {
         return (
             <Card
                 key={quiz.id}
-                className="group relative min-w-0 overflow-hidden border-slate-800 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur transition-all hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10"
+                className="group relative min-w-0 overflow-hidden border-border bg-card transition-all hover:border-foreground/30 hover:shadow-lg hover:shadow-black/5"
             >
                 <CardHeader>
                     <CardTitle
-                        className="text-lg leading-snug text-white break-words"
+                        className="text-lg leading-snug text-foreground break-words"
                         title={heading}
                         style={{
                             display: "-webkit-box",
@@ -451,41 +448,35 @@ export default function QuizzesPage() {
                         {heading}
                     </CardTitle>
                     {showSubtitle && (
-                        <p className="mt-2 text-sm text-slate-400">{quiz.title}</p>
+                        <p className="mt-2 text-sm text-muted-foreground">{quiz.title}</p>
                     )}
                 </CardHeader>
                 <CardContent className="space-y-3">
                     <div className="flex flex-wrap gap-2">
-                        <Badge
-                            variant="secondary"
-                            className="gap-1 bg-slate-700/50 text-slate-300"
-                        >
+                        <Badge variant="secondary" className="gap-1">
                             <HelpCircle className="h-3 w-3" />
                             {quiz._count.questions} вопросов
                         </Badge>
                         {getLastAttemptBadge(quiz)}
                         {mode === "other" && (
-                            <Badge
-                                variant="secondary"
-                                className="bg-slate-700/50 text-slate-300"
-                            >
+                            <Badge variant="secondary">
                                 Без книги
                             </Badge>
                         )}
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-slate-400">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Clock className="h-4 w-4" />
                         <span>Создан {formatDate(quiz.createdAt)}</span>
                     </div>
                     {quiz._count.attempts > 0 && (
-                        <div className="text-sm text-slate-500">
+                        <div className="text-sm text-muted-foreground">
                             Попыток: {quiz._count.attempts}
                         </div>
                     )}
                 </CardContent>
                 <CardFooter className="gap-2">
                     <Link href={`/quizzes/${quiz.id}`} className="flex-1">
-                        <Button className="w-full bg-indigo-600 hover:bg-indigo-500">
+                        <Button className="w-full">
                             <Play className="mr-2 h-4 w-4" />
                             Начать тест
                         </Button>
@@ -493,7 +484,7 @@ export default function QuizzesPage() {
                     <Button
                         variant="outline"
                         size="icon"
-                        className="border-slate-700 text-slate-400 hover:border-red-500 hover:bg-red-500/10 hover:text-red-400"
+                        className="text-muted-foreground hover:text-foreground"
                         onClick={() => handleDelete(quiz.id, quiz.title)}
                     >
                         <Trash2 className="h-4 w-4" />
@@ -504,9 +495,9 @@ export default function QuizzesPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <div className="min-h-dvh bg-background text-foreground">
             {/* Header */}
-            <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-900/80 backdrop-blur-xl">
+            <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-xl">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                     <div className="flex h-16 items-center justify-between">
                         <div className="flex items-center gap-4">
@@ -514,48 +505,48 @@ export default function QuizzesPage() {
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="text-slate-400 hover:text-white"
+                                    className="text-muted-foreground hover:text-foreground"
                                 >
                                     <ArrowLeft className="h-5 w-5" />
                                 </Button>
                             </Link>
                             <div className="flex items-center gap-2">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-600">
-                                    <GraduationCap className="h-5 w-5 text-white" />
+                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-foreground/10 text-foreground">
+                                    <GraduationCap className="h-5 w-5" />
                                 </div>
-                                <h1 className="text-xl font-bold text-white">Тесты</h1>
+                                <h1 className="text-xl font-bold text-foreground">Тесты</h1>
                             </div>
                         </div>
 
                         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                             <DialogTrigger asChild>
-                                <Button className="gap-2 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500">
+                                <Button className="gap-2">
                                     <Upload className="h-4 w-4" />
                                     Загрузить тест
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto border-slate-800 bg-slate-900">
+                            <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto border-border bg-background">
                                 <DialogHeader>
-                                    <DialogTitle className="text-white">
+                                    <DialogTitle className="text-foreground">
                                         Загрузить JSON тест
                                     </DialogTitle>
-                                <DialogDescription className="text-slate-400">
+                                <DialogDescription className="text-muted-foreground">
                                     Выберите файл .json с тестом в правильном формате
                                 </DialogDescription>
                             </DialogHeader>
                             <div className="mt-4 space-y-4">
-                                <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4">
-                                    <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                <div className="rounded-xl border border-border bg-muted/40 p-4">
+                                    <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                                         Привязка к книге
                                     </div>
                                     <div className="space-y-3">
-                                        <label className="text-sm text-slate-300">
+                                        <label className="text-sm text-muted-foreground">
                                             Книга
                                         </label>
                                         <select
                                             value={selectedBookId}
                                             onChange={(e) => handleBookChange(e.target.value)}
-                                            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 focus:border-indigo-500 focus:outline-none"
+                                            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-foreground/60 focus:outline-none"
                                             disabled={uploading || booksLoading}
                                         >
                                             <option value="">Не привязывать</option>
@@ -568,7 +559,7 @@ export default function QuizzesPage() {
 
                                         {selectedBookId && (
                                             <>
-                                                <label className="text-sm text-slate-300">
+                                                <label className="text-sm text-muted-foreground">
                                                     Глава
                                                 </label>
                                                 <Input
@@ -577,17 +568,17 @@ export default function QuizzesPage() {
                                                         setChapterSearch(e.target.value)
                                                     }
                                                     placeholder="Поиск главы"
-                                                    className="bg-slate-900 text-slate-100 placeholder:text-slate-500"
+                                                    className="bg-background text-foreground placeholder:text-muted-foreground"
                                                     disabled={uploading || chaptersLoading}
                                                 />
-                                                <ScrollArea className="h-40 rounded-lg border border-slate-800 bg-slate-900/60">
+                                                <ScrollArea className="h-40 rounded-lg border border-border bg-muted/40">
                                                     <div className="p-2">
                                                         {chaptersLoading ? (
-                                                            <div className="px-3 py-2 text-sm text-slate-500">
+                                                            <div className="px-3 py-2 text-sm text-muted-foreground">
                                                                 Загрузка глав...
                                                             </div>
                                                         ) : filteredChapters.length === 0 ? (
-                                                            <div className="px-3 py-2 text-sm text-slate-500">
+                                                            <div className="px-3 py-2 text-sm text-muted-foreground">
                                                                 Главы не найдены
                                                             </div>
                                                         ) : (
@@ -599,8 +590,8 @@ export default function QuizzesPage() {
                                                                         setSelectedChapterId(chapter.id)
                                                                     }
                                                                     className={`flex w-full items-center rounded-md px-3 py-2 text-left text-sm transition-colors ${selectedChapterId === chapter.id
-                                                                            ? "bg-indigo-500/20 text-indigo-200"
-                                                                            : "text-slate-300 hover:bg-slate-800 hover:text-slate-100"
+                                                                            ? "bg-foreground/10 text-foreground"
+                                                                            : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                                                                         }`}
                                                                     style={{
                                                                         paddingLeft: `${chapter.depth * 12 + 12}px`,
@@ -619,15 +610,15 @@ export default function QuizzesPage() {
 
                                 <label
                                     htmlFor="json-upload"
-                                    className="group flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-700 bg-slate-800/50 p-8 transition-all hover:border-indigo-500 hover:bg-slate-800"
+                                    className="group flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/40 p-8 transition-all hover:border-foreground/40 hover:bg-muted/60"
                                     >
-                                        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-400 transition-transform group-hover:scale-110">
+                                        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-foreground/10 text-foreground transition-transform group-hover:scale-110">
                                             <FileJson className="h-8 w-8" />
                                         </div>
-                                        <span className="mb-2 text-lg font-medium text-white">
+                                        <span className="mb-2 text-lg font-medium text-foreground">
                                             {uploading ? "Загрузка..." : "Нажмите для выбора файла"}
                                         </span>
-                                        <span className="text-sm text-slate-400">
+                                        <span className="text-sm text-muted-foreground">
                                             или перетащите файл сюда
                                         </span>
                                         <Input
@@ -643,7 +634,7 @@ export default function QuizzesPage() {
                                     {validationErrors.length > 0 && (
                                         <Alert
                                             variant="destructive"
-                                            className="border-red-500/50 bg-red-500/10"
+                                            className="border-border bg-muted/40 text-foreground"
                                         >
                                             <AlertCircle className="h-4 w-4" />
                                             <AlertDescription>
@@ -659,10 +650,10 @@ export default function QuizzesPage() {
                                         </Alert>
                                     )}
 
-                                    <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-slate-500">
-                                        <span className="h-px flex-1 bg-slate-800" />
+                                    <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-muted-foreground">
+                                        <span className="h-px flex-1 bg-border" />
                                         или вставьте JSON
-                                        <span className="h-px flex-1 bg-slate-800" />
+                                        <span className="h-px flex-1 bg-border" />
                                     </div>
 
                                     <div className="space-y-3">
@@ -670,12 +661,12 @@ export default function QuizzesPage() {
                                             value={jsonText}
                                             onChange={(e) => setJsonText(e.target.value)}
                                             placeholder="Вставьте JSON теста сюда"
-                                            className="min-h-40 max-h-60 resize-y overflow-y-auto bg-slate-950/40 text-slate-100 placeholder:text-slate-500"
+                                            className="min-h-40 max-h-60 resize-y overflow-y-auto bg-background text-foreground placeholder:text-muted-foreground"
                                             disabled={uploading}
                                         />
                                         <Button
                                             type="button"
-                                            className="w-full bg-indigo-600 hover:bg-indigo-500"
+                                            className="w-full"
                                             onClick={handleTextUpload}
                                             disabled={uploading || !jsonText.trim()}
                                         >
@@ -683,11 +674,11 @@ export default function QuizzesPage() {
                                         </Button>
                                     </div>
 
-                                    <div className="rounded-lg bg-slate-800/50 p-4">
-                                        <h4 className="mb-2 text-sm font-medium text-slate-300">
+                                    <div className="rounded-lg bg-muted/40 p-4">
+                                        <h4 className="mb-2 text-sm font-medium text-foreground">
                                             Пример структуры JSON:
                                         </h4>
-                                        <pre className="overflow-x-auto text-xs text-slate-400">
+                                        <pre className="overflow-x-auto text-xs text-muted-foreground">
                                             {`{
   "title": "Название теста",
   "questions": [{
@@ -716,22 +707,22 @@ export default function QuizzesPage() {
             <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
                 {loading ? (
                     <div className="flex min-h-[400px] items-center justify-center">
-                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-foreground/40 border-t-transparent" />
                     </div>
                 ) : quizzes.length === 0 ? (
                     <div className="flex min-h-[400px] flex-col items-center justify-center text-center">
-                        <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-slate-800">
-                            <GraduationCap className="h-12 w-12 text-slate-600" />
+                        <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-muted/60">
+                            <GraduationCap className="h-12 w-12 text-muted-foreground" />
                         </div>
-                        <h2 className="mb-2 text-2xl font-bold text-white">
+                        <h2 className="mb-2 text-2xl font-bold text-foreground">
                             Тестов пока нет
                         </h2>
-                        <p className="mb-6 text-slate-400">
+                        <p className="mb-6 text-muted-foreground">
                             Загрузите свой первый тест в формате JSON
                         </p>
                         <Button
                             onClick={() => setIsDialogOpen(true)}
-                            className="gap-2 bg-gradient-to-r from-indigo-600 to-cyan-600"
+                            className="gap-2"
                         >
                             <Upload className="h-4 w-4" />
                             Загрузить тест
@@ -746,15 +737,15 @@ export default function QuizzesPage() {
                                     type="button"
                                     onClick={() => setSelectedSection(group.book.id)}
                                     className={`w-full max-w-full rounded-xl border px-4 py-3 text-left transition-all sm:w-56 ${selectedSection === group.book.id
-                                            ? "border-indigo-500/70 bg-indigo-500/10 text-white"
-                                            : "border-slate-800 bg-slate-900/60 text-slate-300 hover:border-indigo-500/40 hover:bg-slate-800"
+                                            ? "border-foreground/40 bg-foreground/10 text-foreground"
+                                            : "border-border bg-muted/40 text-muted-foreground hover:border-foreground/30 hover:bg-muted/60"
                                         }`}
                                     title={group.book.title}
                                 >
                                     <div className="line-clamp-2 text-sm font-semibold break-words">
                                         {group.book.title}
                                     </div>
-                                    <div className="mt-1 text-xs text-slate-400">
+                                    <div className="mt-1 text-xs text-muted-foreground">
                                         {group.quizzes.length} тестов
                                     </div>
                                 </button>
@@ -764,12 +755,12 @@ export default function QuizzesPage() {
                                     type="button"
                                     onClick={() => setSelectedSection("other")}
                                     className={`w-full max-w-full rounded-xl border px-4 py-3 text-left transition-all sm:w-56 ${selectedSection === "other"
-                                            ? "border-indigo-500/70 bg-indigo-500/10 text-white"
-                                            : "border-slate-800 bg-slate-900/60 text-slate-300 hover:border-indigo-500/40 hover:bg-slate-800"
+                                            ? "border-foreground/40 bg-foreground/10 text-foreground"
+                                            : "border-border bg-muted/40 text-muted-foreground hover:border-foreground/30 hover:bg-muted/60"
                                         }`}
                                 >
                                     <div className="text-sm font-semibold">Другие тесты</div>
-                                    <div className="mt-1 text-xs text-slate-400">
+                                    <div className="mt-1 text-xs text-muted-foreground">
                                         {otherQuizzes.length} тестов
                                     </div>
                                 </button>
@@ -780,13 +771,13 @@ export default function QuizzesPage() {
                             <section className="space-y-4">
                                 <div>
                                     <h2
-                                        className="text-xl font-semibold text-white break-words line-clamp-2"
+                                        className="text-xl font-semibold text-foreground break-words line-clamp-2"
                                         title={selectedBookGroup.book.title}
                                     >
                                         {selectedBookGroup.book.title}
                                     </h2>
                                     {selectedBookGroup.book.author && (
-                                        <div className="text-sm text-slate-400">
+                                        <div className="text-sm text-muted-foreground">
                                             {selectedBookGroup.book.author}
                                         </div>
                                     )}
@@ -801,7 +792,7 @@ export default function QuizzesPage() {
 
                         {showingOther && (
                             <section className="space-y-4">
-                                <h2 className="text-xl font-semibold text-white">
+                                <h2 className="text-xl font-semibold text-foreground">
                                     Другие тесты
                                 </h2>
                                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
