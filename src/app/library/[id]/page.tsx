@@ -33,6 +33,7 @@ import {
     X,
     ChevronRight,
     Loader2,
+    Undo2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -80,6 +81,7 @@ export default function BookReaderPage({
     const searchParams = useSearchParams();
     const requestedChapterId = searchParams.get("chapterId");
     const highlightQuote = searchParams.get("quote");
+    const returnToQuiz = searchParams.get("returnToQuiz");
     const [book, setBook] = useState<Book | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
@@ -627,6 +629,18 @@ export default function BookReaderPage({
                         >
                             <Menu className="h-5 w-5" />
                         </Button>
+                        {returnToQuiz && (
+                            <Link href={`/quizzes/${returnToQuiz}`}>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-2"
+                                >
+                                    <Undo2 className="h-4 w-4" />
+                                    <span className="hidden sm:inline">К тесту</span>
+                                </Button>
+                            </Link>
+                        )}
                         <h1 className="line-clamp-1 text-base font-medium text-foreground sm:text-lg">
                             {selectedChapter?.title || "Выберите главу"}
                         </h1>

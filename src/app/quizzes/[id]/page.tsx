@@ -271,7 +271,7 @@ export default function QuizPage({
     const isCurrentChecked = !!currentResult;
     const quoteLink =
         currentQuestion?.quote && quiz?.chapter
-            ? `/library/${quiz.chapter.bookId}?chapterId=${quiz.chapter.id}&quote=${encodeURIComponent(currentQuestion.quote)}`
+            ? `/library/${quiz.chapter.bookId}?chapterId=${quiz.chapter.id}&quote=${encodeURIComponent(currentQuestion.quote)}&returnToQuiz=${id}`
             : null;
 
     const handleSingleAnswer = (optionId: string) => {
@@ -583,15 +583,13 @@ export default function QuizPage({
                                     <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                         Цитата из книги
                                     </div>
-                                    <a
+                                    <Link
                                         href={quoteLink}
-                                        target="_blank"
-                                        rel="noreferrer"
                                         className="block text-sm text-foreground underline decoration-muted-foreground/60 underline-offset-2 transition-colors hover:decoration-foreground"
                                         title={`Открыть главу: ${quiz?.chapter?.title}`}
                                     >
                                         "{currentQuestion.quote}"
-                                    </a>
+                                    </Link>
                                 </div>
                             )}
                         </CardHeader>

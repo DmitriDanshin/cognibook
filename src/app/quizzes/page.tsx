@@ -36,6 +36,7 @@ import {
     AlertCircle,
     Play,
     Trophy,
+    Filter,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -82,6 +83,25 @@ interface ValidationError {
     message: string;
 }
 
+type QuizStatusFilter = "all" | "not_started" | "in_progress" | "passed" | "failed";
+
+interface SavedQuizProgress {
+    version: number;
+    currentQuestionIndex: number;
+    answers: Record<string, string[]>;
+    checkedQuestions: Record<string, { isCorrect: boolean }>;
+    isFinished: boolean;
+    finalScore: { score: number; total: number };
+}
+
+const STATUS_FILTERS: { value: QuizStatusFilter; label: string }[] = [
+    { value: "all", label: "Все" },
+    { value: "not_started", label: "Не начатые" },
+    { value: "in_progress", label: "В процессе" },
+    { value: "passed", label: "Пройденные" },
+    { value: "failed", label: "С ошибками" },
+];
+
 export default function QuizzesPage() {
     const router = useRouter();
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
@@ -99,6 +119,10 @@ export default function QuizzesPage() {
     const [selectedSection, setSelectedSection] = useState("");
     const [validationErrors, setValidationErrors] = useState<ValidationError[]>(
         []
+    );
+    const [statusFilter, setStatusFilter] = useState<QuizStatusFilter>("all");
+    const [quizStatuses, setQuizStatuses] = useState<Map<string, QuizStatusFilter>>(
+        new Map()
     );
 
     const fetchQuizzes = useCallback(async () => {
@@ -118,6 +142,61 @@ export default function QuizzesPage() {
     useEffect(() => {
         fetchQuizzes();
     }, [fetchQuizzes]);
+
+    // Determine quiz statuses from localStorage and attempts
+    useEffect(() => {
+        if (quizzes.length === 0) return;
+
+        const statuses = new Map<string, QuizStatusFilter>();
+
+        quizzes.forEach((quiz) => {
+            // Check if quiz was completed with a stored attempt
+            if (quiz.attempts.length > 0) {
+                const lastAttempt = quiz.attempts[0];
+                const percentage = Math.round(
+                    (lastAttempt.score / lastAttempt.totalQuestions) * 100
+                );
+                statuses.set(quiz.id, percentage >= 70 ? "passed" : "failed");
+                return;
+            }
+
+            // Check localStorage for in-progress quizzes
+            try {
+                const storageKey = `quiz-progress:${quiz.id}`;
+                const raw = localStorage.getItem(storageKey);
+                if (!raw) {
+                    statuses.set(quiz.id, "not_started");
+                    return;
+                }
+
+                const parsed = JSON.parse(raw) as SavedQuizProgress;
+                if (!parsed || parsed.version !== 1) {
+                    statuses.set(quiz.id, "not_started");
+                    return;
+                }
+
+                // Check if there's any progress
+                const hasAnswers = Object.keys(parsed.answers || {}).length > 0;
+                const hasChecked = Object.keys(parsed.checkedQuestions || {}).length > 0;
+
+                if (parsed.isFinished) {
+                    // Quiz finished but not submitted to server
+                    const percentage = parsed.finalScore.total > 0
+                        ? Math.round((parsed.finalScore.score / parsed.finalScore.total) * 100)
+                        : 0;
+                    statuses.set(quiz.id, percentage >= 70 ? "passed" : "failed");
+                } else if (hasAnswers || hasChecked) {
+                    statuses.set(quiz.id, "in_progress");
+                } else {
+                    statuses.set(quiz.id, "not_started");
+                }
+            } catch {
+                statuses.set(quiz.id, "not_started");
+            }
+        });
+
+        setQuizStatuses(statuses);
+    }, [quizzes]);
 
     const fetchBooks = useCallback(async () => {
         try {
@@ -353,13 +432,19 @@ export default function QuizzesPage() {
         chapter.label.toLowerCase().includes(chapterSearch.trim().toLowerCase())
     );
 
+    // Filter quizzes by status
+    const filteredQuizzes = useMemo(() => {
+        if (statusFilter === "all") return quizzes;
+        return quizzes.filter((quiz) => quizStatuses.get(quiz.id) === statusFilter);
+    }, [quizzes, quizStatuses, statusFilter]);
+
     const bookGroups = useMemo(() => {
         const map = new Map<
             string,
             { book: { id: string; title: string; author: string | null }; quizzes: Quiz[] }
         >();
 
-        quizzes.forEach((quiz) => {
+        filteredQuizzes.forEach((quiz) => {
             if (!quiz.chapter?.book) return;
             const bookId = quiz.chapter.book.id;
             if (!map.has(bookId)) {
@@ -386,11 +471,11 @@ export default function QuizzesPage() {
         });
 
         return groups.sort((a, b) => a.book.title.localeCompare(b.book.title));
-    }, [quizzes]);
+    }, [filteredQuizzes]);
 
     const otherQuizzes = useMemo(
-        () => quizzes.filter((quiz) => !quiz.chapter),
-        [quizzes]
+        () => filteredQuizzes.filter((quiz) => !quiz.chapter),
+        [filteredQuizzes]
     );
 
     useEffect(() => {
@@ -739,6 +824,41 @@ export default function QuizzesPage() {
                     </div>
                 ) : (
                     <div className="space-y-8">
+                        {/* Status Filter */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Filter className="h-4 w-4 text-muted-foreground" />
+                            {STATUS_FILTERS.map((filter) => (
+                                <button
+                                    key={filter.value}
+                                    type="button"
+                                    onClick={() => setStatusFilter(filter.value)}
+                                    className={`rounded-full border px-3 py-1.5 text-sm transition-all ${
+                                        statusFilter === filter.value
+                                            ? "border-foreground/40 bg-foreground/10 text-foreground"
+                                            : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                                    }`}
+                                >
+                                    {filter.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {filteredQuizzes.length === 0 ? (
+                            <div className="flex min-h-[200px] flex-col items-center justify-center text-center">
+                                <Filter className="mb-4 h-12 w-12 text-muted-foreground" />
+                                <p className="text-muted-foreground">
+                                    Нет тестов с выбранным статусом
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => setStatusFilter("all")}
+                                    className="mt-4 text-sm text-foreground underline underline-offset-2"
+                                >
+                                    Показать все тесты
+                                </button>
+                            </div>
+                        ) : (
+                        <>
                         <div className="flex flex-wrap gap-3">
                             {bookGroups.map((group) => (
                                 <button
@@ -810,6 +930,8 @@ export default function QuizzesPage() {
                                     )}
                                 </div>
                             </section>
+                        )}
+                        </>
                         )}
                     </div>
                 )}
