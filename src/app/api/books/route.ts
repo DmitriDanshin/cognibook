@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { writeFile, mkdir } from "fs/promises";
+import { writeFile, mkdir, readFile } from "fs/promises";
 import path from "path";
 import { parseEpubFile, TocItem } from "@/lib/epub-parser";
+import crypto from "crypto";
 
 async function createChapters(
     bookId: string,
@@ -76,6 +77,56 @@ export async function POST(request: NextRequest) {
         // Save file
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
+        const fileHash = crypto.createHash("sha256").update(buffer).digest("hex");
+
+        const existingByHash = await prisma.book.findFirst({
+            where: { fileHash },
+        });
+
+        if (existingByHash) {
+            return NextResponse.json(
+                { error: "Book already uploaded", book: existingByHash },
+                { status: 409 }
+            );
+        }
+
+        const hashCandidates = await prisma.book.findMany({
+            where: { fileHash: null, fileSize: file.size },
+            select: { id: true, filePath: true, title: true, author: true },
+        });
+
+        for (const candidate of hashCandidates) {
+            try {
+                const candidatePath = path.join(process.cwd(), candidate.filePath);
+                const candidateBuffer = await readFile(candidatePath);
+                const candidateHash = crypto
+                    .createHash("sha256")
+                    .update(candidateBuffer)
+                    .digest("hex");
+
+                await prisma.book.update({
+                    where: { id: candidate.id },
+                    data: { fileHash: candidateHash },
+                });
+
+                if (candidateHash === fileHash) {
+                    return NextResponse.json(
+                        {
+                            error: "Book already uploaded",
+                            book: {
+                                id: candidate.id,
+                                title: candidate.title,
+                                author: candidate.author,
+                            },
+                        },
+                        { status: 409 }
+                    );
+                }
+            } catch {
+                // ignore missing or unreadable files
+            }
+        }
+
         await writeFile(filePath, buffer);
 
         // Parse EPUB
@@ -110,6 +161,7 @@ export async function POST(request: NextRequest) {
                 author,
                 coverPath,
                 filePath: `/uploads/books/${fileName}`,
+                fileHash,
                 fileSize: file.size,
             },
         });

@@ -86,9 +86,16 @@ export default function LibraryPage() {
                 body: formData,
             });
 
+            const data = await response.json().catch(() => null);
+
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || "Failed to upload");
+                if (response.status === 409) {
+                    toast.info("Книга уже загружена");
+                    setIsDialogOpen(false);
+                    fetchBooks();
+                    return;
+                }
+                throw new Error(data?.error || "Failed to upload");
             }
 
             toast.success("Книга успешно загружена");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, use, useRef } from "react";
+import { useState, useEffect, useCallback, use, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -61,6 +61,16 @@ interface ValidationError {
 const escapeRegExp = (value: string) =>
     value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+const getExpandableChapterIds = (chapters: Chapter[]) => {
+    const parentIds = new Set<string>();
+    chapters.forEach((chapter) => {
+        if (chapter.parentId) {
+            parentIds.add(chapter.parentId);
+        }
+    });
+    return Array.from(parentIds);
+};
+
 export default function BookReaderPage({
     params,
 }: {
@@ -77,6 +87,7 @@ export default function BookReaderPage({
     const [chapterContent, setChapterContent] = useState<string>("");
     const [contentLoading, setContentLoading] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [expandedChapters, setExpandedChapters] = useState<string[]>([]);
     const [isQuizDialogOpen, setIsQuizDialogOpen] = useState(false);
     const [quizUploading, setQuizUploading] = useState(false);
     const [quizJsonText, setQuizJsonText] = useState("");
@@ -88,9 +99,13 @@ export default function BookReaderPage({
     );
     const [linkedQuizLoading, setLinkedQuizLoading] = useState(false);
     const contentRef = useRef<HTMLDivElement | null>(null);
+    const [isTocReady, setIsTocReady] = useState(false);
+    const chapterStorageKey = useMemo(() => `book-last-chapter:${id}`, [id]);
+    const tocStorageKey = useMemo(() => `book-toc-expanded:${id}`, [id]);
 
     const fetchBook = useCallback(async () => {
         try {
+            setIsTocReady(false);
             const response = await fetch(`/api/books/${id}`);
             if (!response.ok) throw new Error("Failed to fetch book");
             const data = await response.json();
@@ -98,21 +113,58 @@ export default function BookReaderPage({
 
             // Build chapter hierarchy
             const chaptersWithChildren = buildChapterTree(data.chapters || []);
+            const parentIds = new Set<string>();
+            (data.chapters || []).forEach((chapter: Chapter) => {
+                if (chapter.parentId) {
+                    parentIds.add(chapter.parentId);
+                }
+            });
+            const expandableChapterIds = Array.from(parentIds);
+            let savedChapterId: string | null = null;
+            let savedExpanded: string[] = [];
+            try {
+                savedChapterId = localStorage.getItem(chapterStorageKey);
+                const expandedRaw = localStorage.getItem(tocStorageKey);
+                savedExpanded = expandedRaw ? (JSON.parse(expandedRaw) as string[]) : [];
+            } catch {
+                savedChapterId = null;
+                savedExpanded = [];
+            }
+
             const requestedChapter = requestedChapterId
-                ? data.chapters?.find((chapter: Chapter) => chapter.id === requestedChapterId)
+                ? data.chapters?.find(
+                    (chapter: Chapter) => chapter.id === requestedChapterId
+                )
                 : null;
+            const savedChapter =
+                !requestedChapter && savedChapterId
+                    ? data.chapters?.find(
+                        (chapter: Chapter) => chapter.id === savedChapterId
+                    )
+                    : null;
             if (requestedChapter) {
                 setSelectedChapter(requestedChapter);
+            } else if (savedChapter) {
+                setSelectedChapter(savedChapter);
             } else if (chaptersWithChildren.length > 0) {
                 setSelectedChapter(chaptersWithChildren[0]);
             }
+
+            if (savedExpanded.length > 0) {
+                setExpandedChapters(
+                    savedExpanded.filter((chapterId) => parentIds.has(chapterId))
+                );
+            } else {
+                setExpandedChapters(expandableChapterIds);
+            }
+            setIsTocReady(true);
         } catch (error) {
             console.error("Error fetching book:", error);
             toast.error("Не удалось загрузить книгу");
         } finally {
             setLoading(false);
         }
-    }, [id, requestedChapterId]);
+    }, [id, requestedChapterId, chapterStorageKey, tocStorageKey]);
 
     useEffect(() => {
         fetchBook();
@@ -140,6 +192,24 @@ export default function BookReaderPage({
             fetchChapterContent(selectedChapter);
         }
     }, [selectedChapter, fetchChapterContent]);
+
+    useEffect(() => {
+        if (!selectedChapter) return;
+        try {
+            localStorage.setItem(chapterStorageKey, selectedChapter.id);
+        } catch {
+            // ignore storage errors
+        }
+    }, [selectedChapter, chapterStorageKey]);
+
+    useEffect(() => {
+        if (!isTocReady) return;
+        try {
+            localStorage.setItem(tocStorageKey, JSON.stringify(expandedChapters));
+        } catch {
+            // ignore storage errors
+        }
+    }, [expandedChapters, isTocReady, tocStorageKey]);
 
     const fetchLinkedQuiz = useCallback(async (chapterId: string) => {
         setLinkedQuizLoading(true);
@@ -456,6 +526,11 @@ export default function BookReaderPage({
 
     // Build chapter tree
     const chapterTree = buildChapterTree(book.chapters);
+    const expandableChapterIds = getExpandableChapterIds(book.chapters);
+    const expandedSet = new Set(expandedChapters);
+    const isAllExpanded =
+        expandableChapterIds.length > 0 &&
+        expandableChapterIds.every((id) => expandedSet.has(id));
 
     return (
         <div className="flex h-screen bg-slate-900">
@@ -489,14 +564,32 @@ export default function BookReaderPage({
                 </div>
 
                 {/* Table of Contents */}
-                <div className="px-4 py-3">
+                <div className="flex items-center justify-between px-4 py-3">
                     <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                         Оглавление
                     </h2>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-slate-400 hover:text-white"
+                        onClick={() =>
+                            setExpandedChapters(
+                                isAllExpanded ? [] : expandableChapterIds
+                            )
+                        }
+                        disabled={expandableChapterIds.length === 0}
+                    >
+                        {isAllExpanded ? "Свернуть" : "Раскрыть"}
+                    </Button>
                 </div>
                 <ScrollArea className="h-[calc(100vh-8rem)]">
                     {chapterTree.length > 0 ? (
-                        <Accordion type="multiple" className="w-full">
+                        <Accordion
+                            type="multiple"
+                            className="w-full"
+                            value={expandedChapters}
+                            onValueChange={setExpandedChapters}
+                        >
                             {chapterTree.map((chapter) => renderChapterItem(chapter))}
                         </Accordion>
                     ) : (
