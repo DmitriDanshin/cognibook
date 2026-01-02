@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+.gitignore
+*.md
+dev.db
+dev.db-journal
+uploads
+.idea
+test-quiz.json
+.env*

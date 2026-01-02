@@ -1,0 +1,16 @@
+services:
+  cognibook:
+    build: .
+    container_name: cognibook
+    restart: unless-stopped
+    ports:
+      - "9999:3000"
+    volumes:
+      - cognibook_uploads:/app/uploads
+      - cognibook_db:/app/data
+    environment:
+      - DATABASE_URL=file:/app/data/dev.db
+
+volumes:
+  cognibook_uploads:
+  cognibook_db:
