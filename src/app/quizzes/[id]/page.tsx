@@ -119,6 +119,7 @@ export default function QuizPage({
     const storageKey = useMemo(() => `quiz-progress:${id}`, [id]);
     const answersScrollRef = useRef<HTMLDivElement | null>(null);
     const [isQuoteExpanded, setIsQuoteExpanded] = useState(false);
+    const isSubmittingRef = useRef(false);
 
     const fetchQuiz = useCallback(async () => {
         try {
@@ -281,6 +282,66 @@ export default function QuizPage({
         window.scrollTo({ top: 0, behavior: "auto" });
     }, [currentQuestionIndex]);
 
+    // Auto-submit quiz if all questions are answered and user leaves the page
+    useEffect(() => {
+        if (!quiz || isFinished || isSubmittingRef.current) return;
+
+        const submitQuizSilently = (submissionAnswers: Answer[]) => {
+            const payload = JSON.stringify({ answers: submissionAnswers });
+
+            // Use sendBeacon for reliable submission during page unload/navigation
+            const sent = navigator.sendBeacon(
+                `/api/quizzes/${id}/submit`,
+                new Blob([payload], { type: "application/json" })
+            );
+
+            if (sent) {
+                isSubmittingRef.current = true;
+            }
+        };
+
+        const checkAndSubmit = () => {
+            if (isSubmittingRef.current) return;
+
+            // Check if all questions have answers
+            const allAnswered = quiz.questions.every((q) => {
+                const answer = answers.get(q.id);
+                return answer && answer.length > 0;
+            });
+
+            if (allAnswered) {
+                const submissionAnswers: Answer[] = quiz.questions.map((q) => ({
+                    questionId: q.id,
+                    selectedIds: answers.get(q.id) || [],
+                }));
+
+                submitQuizSilently(submissionAnswers);
+            }
+        };
+
+        // Handle page unload (closing tab/window or navigation)
+        const handleBeforeUnload = () => {
+            checkAndSubmit();
+        };
+
+        // Handle visibility change (switching tabs, minimizing)
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                checkAndSubmit();
+            }
+        };
+
+        window.addEventListener("beforeunload", handleBeforeUnload);
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+
+        // Also submit when component unmounts (navigation within app)
+        return () => {
+            window.removeEventListener("beforeunload", handleBeforeUnload);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+            checkAndSubmit();
+        };
+    }, [quiz, answers, isFinished, id]);
+
     const currentQuestion = quiz?.questions[currentQuestionIndex];
     const currentAnswer = currentQuestion
         ? answers.get(currentQuestion.id) || []
@@ -358,7 +419,7 @@ export default function QuizPage({
         }
     };
 
-    const handleFinishQuiz = async () => {
+    const handleFinishQuiz = async (showToast = true) => {
         if (!quiz) return;
 
         // Check all unanswered questions
@@ -368,9 +429,11 @@ export default function QuizPage({
         });
 
         if (unansweredQuestions.length > 0) {
-            toast.error(
-                `Ответьте на все вопросы. Осталось: ${unansweredQuestions.length}`
-            );
+            if (showToast) {
+                toast.error(
+                    `Ответьте на все вопросы. Осталось: ${unansweredQuestions.length}`
+                );
+            }
             return;
         }
 
@@ -392,10 +455,14 @@ export default function QuizPage({
             const result = await response.json();
             setFinalScore({ score: result.score, total: result.totalQuestions });
             setIsFinished(true);
-            toast.success("Тест завершён!");
+            if (showToast) {
+                toast.success("Тест завершён!");
+            }
         } catch (error) {
             console.error("Error submitting quiz:", error);
-            toast.error("Не удалось сохранить результат");
+            if (showToast) {
+                toast.error("Не удалось сохранить результат");
+            }
         }
     };
 

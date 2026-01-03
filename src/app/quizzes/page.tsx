@@ -96,7 +96,7 @@ interface SavedQuizProgress {
 
 const STATUS_FILTERS: { value: QuizStatusFilter; label: string }[] = [
     { value: "all", label: "Все" },
-    { value: "not_started", label: "Не начатые" },
+    { value: "not_started", label: "Новые" },
     { value: "in_progress", label: "В процессе" },
     { value: "passed", label: "Пройденные" },
     { value: "failed", label: "С ошибками" },
@@ -120,7 +120,7 @@ export default function QuizzesPage() {
     const [validationErrors, setValidationErrors] = useState<ValidationError[]>(
         []
     );
-    const [statusFilter, setStatusFilter] = useState<QuizStatusFilter>("all");
+    const [statusFilter, setStatusFilter] = useState<QuizStatusFilter>("not_started");
     const [quizStatuses, setQuizStatuses] = useState<Map<string, QuizStatusFilter>>(
         new Map()
     );
@@ -432,6 +432,22 @@ export default function QuizzesPage() {
         chapter.label.toLowerCase().includes(chapterSearch.trim().toLowerCase())
     );
 
+    // Count quizzes by status
+    const statusCounts = useMemo(() => {
+        const counts = new Map<QuizStatusFilter, number>();
+        STATUS_FILTERS.forEach((filter) => counts.set(filter.value, 0));
+
+        quizzes.forEach((quiz) => {
+            const status = quizStatuses.get(quiz.id);
+            if (status) {
+                counts.set(status, (counts.get(status) || 0) + 1);
+            }
+        });
+        counts.set("all", quizzes.length);
+
+        return counts;
+    }, [quizzes, quizStatuses]);
+
     // Filter quizzes by status
     const filteredQuizzes = useMemo(() => {
         if (statusFilter === "all") return quizzes;
@@ -530,7 +546,16 @@ export default function QuizzesPage() {
                             overflow: "hidden",
                         }}
                     >
-                        {heading}
+                        {quiz.chapter ? (
+                            <Link
+                                href={`/library/${quiz.chapter.bookId}?chapterId=${quiz.chapter.id}`}
+                                className="hover:text-blue-600 transition-colors"
+                            >
+                                {heading}
+                            </Link>
+                        ) : (
+                            heading
+                        )}
                     </CardTitle>
                     {showSubtitle && (
                         <p className="mt-2 text-sm text-muted-foreground">{quiz.title}</p>
@@ -750,8 +775,8 @@ export default function QuizzesPage() {
                                                                             setSelectedChapterId(chapter.id)
                                                                         }
                                                                         className={`flex w-full items-center rounded-md px-3 py-2 text-left text-sm transition-colors ${selectedChapterId === chapter.id
-                                                                                ? "bg-foreground/10 text-foreground"
-                                                                                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                                                                            ? "bg-foreground/10 text-foreground"
+                                                                            : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                                                                             }`}
                                                                         style={{
                                                                             paddingLeft: `${chapter.depth * 12 + 12}px`,
@@ -827,20 +852,30 @@ export default function QuizzesPage() {
                         {/* Status Filter */}
                         <div className="flex flex-wrap items-center gap-2">
                             <Filter className="h-4 w-4 text-muted-foreground" />
-                            {STATUS_FILTERS.map((filter) => (
-                                <button
-                                    key={filter.value}
-                                    type="button"
-                                    onClick={() => setStatusFilter(filter.value)}
-                                    className={`rounded-full border px-3 py-1.5 text-sm transition-all ${
-                                        statusFilter === filter.value
-                                            ? "border-foreground/40 bg-foreground/10 text-foreground"
-                                            : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-                                    }`}
-                                >
-                                    {filter.label}
-                                </button>
-                            ))}
+                            {STATUS_FILTERS.map((filter) => {
+                                const count = statusCounts.get(filter.value) || 0;
+                                return (
+                                    <button
+                                        key={filter.value}
+                                        type="button"
+                                        onClick={() => setStatusFilter(filter.value)}
+                                        className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-all ${statusFilter === filter.value
+                                                ? "border-foreground/40 bg-foreground/10 text-foreground"
+                                                : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                                            }`}
+                                    >
+                                        <span>{filter.label}</span>
+                                        <span
+                                            className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-medium ${statusFilter === filter.value
+                                                    ? "bg-foreground/20 text-foreground"
+                                                    : "bg-muted text-muted-foreground"
+                                                }`}
+                                        >
+                                            {count}
+                                        </span>
+                                    </button>
+                                );
+                            })}
                         </div>
 
                         {filteredQuizzes.length === 0 ? (
@@ -858,80 +893,85 @@ export default function QuizzesPage() {
                                 </button>
                             </div>
                         ) : (
-                        <>
-                        <div className="flex flex-wrap gap-3">
-                            {bookGroups.map((group) => (
-                                <button
-                                    key={group.book.id}
-                                    type="button"
-                                    onClick={() => setSelectedSection(group.book.id)}
-                                    className={`w-full max-w-full rounded-xl border px-4 py-3 text-left transition-all sm:w-56 ${selectedSection === group.book.id
-                                            ? "border-foreground/40 bg-foreground/10 text-foreground"
-                                            : "border-border bg-muted/40 text-muted-foreground hover:border-foreground/30 hover:bg-muted/60"
-                                        }`}
-                                    title={group.book.title}
-                                >
-                                    <div className="line-clamp-2 text-sm font-semibold break-words">
-                                        {group.book.title}
-                                    </div>
-                                    <div className="mt-1 text-xs text-muted-foreground">
-                                        {group.quizzes.length} тестов
-                                    </div>
-                                </button>
-                            ))}
-                            {otherQuizzes.length > 0 && (
-                                <button
-                                    type="button"
-                                    onClick={() => setSelectedSection("other")}
-                                    className={`w-full max-w-full rounded-xl border px-4 py-3 text-left transition-all sm:w-56 ${selectedSection === "other"
-                                            ? "border-foreground/40 bg-foreground/10 text-foreground"
-                                            : "border-border bg-muted/40 text-muted-foreground hover:border-foreground/30 hover:bg-muted/60"
-                                        }`}
-                                >
-                                    <div className="text-sm font-semibold">Другие тесты</div>
-                                    <div className="mt-1 text-xs text-muted-foreground">
-                                        {otherQuizzes.length} тестов
-                                    </div>
-                                </button>
-                            )}
-                        </div>
+                            <>
+                                <div className="flex flex-wrap gap-3">
+                                    {bookGroups.map((group) => (
+                                        <button
+                                            key={group.book.id}
+                                            type="button"
+                                            onClick={() => setSelectedSection(group.book.id)}
+                                            className={`w-full max-w-full rounded-xl border px-4 py-3 text-left transition-all sm:w-56 ${selectedSection === group.book.id
+                                                ? "border-foreground/40 bg-foreground/10 text-foreground"
+                                                : "border-border bg-muted/40 text-muted-foreground hover:border-foreground/30 hover:bg-muted/60"
+                                                }`}
+                                            title={group.book.title}
+                                        >
+                                            <div className="line-clamp-2 text-sm font-semibold break-words">
+                                                {group.book.title}
+                                            </div>
+                                            <div className="mt-1 text-xs text-muted-foreground">
+                                                {group.quizzes.length} тестов
+                                            </div>
+                                        </button>
+                                    ))}
+                                    {otherQuizzes.length > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedSection("other")}
+                                            className={`w-full max-w-full rounded-xl border px-4 py-3 text-left transition-all sm:w-56 ${selectedSection === "other"
+                                                ? "border-foreground/40 bg-foreground/10 text-foreground"
+                                                : "border-border bg-muted/40 text-muted-foreground hover:border-foreground/30 hover:bg-muted/60"
+                                                }`}
+                                        >
+                                            <div className="text-sm font-semibold">Другие тесты</div>
+                                            <div className="mt-1 text-xs text-muted-foreground">
+                                                {otherQuizzes.length} тестов
+                                            </div>
+                                        </button>
+                                    )}
+                                </div>
 
-                        {selectedBookGroup && (
-                            <section className="space-y-4">
-                                <div>
-                                    <h2
-                                        className="text-xl font-semibold text-foreground break-words line-clamp-2"
-                                        title={selectedBookGroup.book.title}
-                                    >
-                                        {selectedBookGroup.book.title}
-                                    </h2>
-                                    {selectedBookGroup.book.author && (
-                                        <div className="text-sm text-muted-foreground">
-                                            {selectedBookGroup.book.author}
+                                {selectedBookGroup && (
+                                    <section className="space-y-4">
+                                        <div>
+                                            <h2
+                                                className="text-xl font-semibold text-foreground break-words line-clamp-2"
+                                                title={selectedBookGroup.book.title}
+                                            >
+                                                <Link
+                                                    href={`/library/${selectedBookGroup.book.id}`}
+                                                    className="hover:text-blue-600 transition-colors"
+                                                >
+                                                    {selectedBookGroup.book.title}
+                                                </Link>
+                                            </h2>
+                                            {selectedBookGroup.book.author && (
+                                                <div className="text-sm text-muted-foreground">
+                                                    {selectedBookGroup.book.author}
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
-                                </div>
-                                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                                    {selectedBookGroup.quizzes.map((quiz) =>
-                                        renderQuizCard(quiz, "chapter")
-                                    )}
-                                </div>
-                            </section>
-                        )}
+                                        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                                            {selectedBookGroup.quizzes.map((quiz) =>
+                                                renderQuizCard(quiz, "chapter")
+                                            )}
+                                        </div>
+                                    </section>
+                                )}
 
-                        {showingOther && (
-                            <section className="space-y-4">
-                                <h2 className="text-xl font-semibold text-foreground">
-                                    Другие тесты
-                                </h2>
-                                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                                    {otherQuizzes.map((quiz) =>
-                                        renderQuizCard(quiz, "other")
-                                    )}
-                                </div>
-                            </section>
-                        )}
-                        </>
+                                {showingOther && (
+                                    <section className="space-y-4">
+                                        <h2 className="text-xl font-semibold text-foreground">
+                                            Другие тесты
+                                        </h2>
+                                        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                                            {otherQuizzes.map((quiz) =>
+                                                renderQuizCard(quiz, "other")
+                                            )}
+                                        </div>
+                                    </section>
+                                )}
+                            </>
                         )}
                     </div>
                 )}
