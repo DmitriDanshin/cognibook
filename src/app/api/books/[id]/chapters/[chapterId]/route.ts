@@ -3,7 +3,8 @@ import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { readFile } from "fs/promises";
 import path from "path";
-import { getEpubChapterContent } from "@/lib/epub-parser";
+import { getEpubChapterContent } from "@/lib/parsers/epub-parser";
+import { getMarkdownChapterContent } from "@/lib/parsers/markdown-parser";
 
 export async function GET(
     request: NextRequest,
@@ -35,11 +36,22 @@ export async function GET(
         }
 
         // Read EPUB file
-        const epubPath = path.join(process.cwd(), book.filePath);
-        const epubBuffer = await readFile(epubPath);
+        const bookPath = path.join(process.cwd(), book.filePath);
+        const bookBuffer = await readFile(bookPath);
 
-        // Get chapter content
-        const content = await getEpubChapterContent(epubBuffer, chapter.href, id);
+        const fileExt = path.extname(book.filePath).toLowerCase();
+        let content = "";
+
+        if (fileExt === ".epub") {
+            content = await getEpubChapterContent(bookBuffer, chapter.href, id);
+        } else if (fileExt === ".md" || fileExt === ".markdown") {
+            content = await getMarkdownChapterContent(bookBuffer, chapter.href);
+        } else {
+            return NextResponse.json(
+                { error: "Unsupported book format" },
+                { status: 400 }
+            );
+        }
 
         return NextResponse.json({
             id: chapter.id,

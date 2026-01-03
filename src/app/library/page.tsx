@@ -71,8 +71,10 @@ export default function LibraryPage() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        if (!file.name.endsWith(".epub")) {
-            toast.error("Поддерживаются только файлы EPUB");
+        const allowedExtensions = [".epub", ".md", ".markdown"];
+        const lowerName = file.name.toLowerCase();
+        if (!allowedExtensions.some((ext) => lowerName.endsWith(ext))) {
+            toast.error("Поддерживаются только файлы EPUB или Markdown");
             return;
         }
 
@@ -177,10 +179,10 @@ export default function LibraryPage() {
                             <DialogContent className="border-border bg-background">
                                 <DialogHeader>
                                     <DialogTitle className="text-foreground">
-                                        Загрузить EPUB книгу
+                                        Загрузить книгу
                                     </DialogTitle>
                                     <DialogDescription className="text-muted-foreground">
-                                        Выберите файл в формате .epub для загрузки в библиотеку
+                                        Выберите файл в формате .epub или .md для загрузки в библиотеку
                                     </DialogDescription>
                                 </DialogHeader>
                                 <div className="mt-4">
@@ -200,7 +202,7 @@ export default function LibraryPage() {
                                         <Input
                                             id="epub-upload"
                                             type="file"
-                                            accept=".epub"
+                                            accept=".epub,.md,.markdown"
                                             className="hidden"
                                             onChange={handleFileUpload}
                                             disabled={uploading}
@@ -228,7 +230,7 @@ export default function LibraryPage() {
                             Библиотека пуста
                         </h2>
                         <p className="mb-6 text-muted-foreground">
-                            Загрузите свою первую книгу в формате EPUB
+                            Загрузите свою первую книгу в формате EPUB или Markdown
                         </p>
                         <Button
                             onClick={() => setIsDialogOpen(true)}

@@ -1,51 +1,19 @@
 import JSZip from "jszip";
 import { DOMParser } from "xmldom";
 import path from "path";
+import { BaseParser } from "./base-parser";
+import type { EpubMetadata, ParsedEpub, SpineItem, TocItem } from "./types";
+export type { EpubChapterContent, EpubMetadata, ParsedEpub, SpineItem, TocItem } from "./types";
 
-export interface EpubMetadata {
-    title: string;
-    author: string | null;
-    language: string | null;
-    publisher: string | null;
-    description: string | null;
-    coverHref: string | null;
-}
-
-export interface TocItem {
-    id: string;
-    title: string;
-    href: string;
-    order: number;
-    children: TocItem[];
-}
-
-export interface SpineItem {
-    id: string;
-    href: string;
-    order: number;
-}
-
-export interface EpubChapterContent {
-    href: string;
-    html: string;
-}
-
-export interface ParsedEpub {
-    metadata: EpubMetadata;
-    toc: TocItem[];
-    spine: SpineItem[];
-    coverBuffer: Buffer | null;
-    coverMimeType: string | null;
-}
-
-export class EpubParser {
+export class EpubParser extends BaseParser<ParsedEpub> {
     private zip: JSZip;
     private opfPath: string = "";
     private opfDir: string = "";
     private opfContent: Document | null = null;
     private manifest: Map<string, { href: string; mediaType: string }> = new Map();
 
-    constructor(private buffer: Buffer) {
+    constructor(buffer: Buffer) {
+        super(buffer);
         this.zip = new JSZip();
     }
 

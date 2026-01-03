@@ -3,7 +3,8 @@ import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { writeFile, mkdir, readFile } from "fs/promises";
 import path from "path";
-import { parseEpubFile, TocItem } from "@/lib/epub-parser";
+import { parseEpubFile, TocItem } from "@/lib/parsers/epub-parser";
+import { parseMarkdownFile } from "@/lib/parsers/markdown-parser";
 import crypto from "crypto";
 
 async function createChapters(
@@ -72,9 +73,13 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "No file provided" }, { status: 400 });
         }
 
-        if (!file.name.endsWith(".epub")) {
+        const originalExt = path.extname(file.name);
+        const fileExt = originalExt.toLowerCase();
+        const allowedExtensions = new Set([".epub", ".md", ".markdown"]);
+
+        if (!allowedExtensions.has(fileExt)) {
             return NextResponse.json(
-                { error: "Only EPUB files are supported" },
+                { error: "Only EPUB or Markdown files are supported" },
                 { status: 400 }
             );
         }
@@ -85,7 +90,7 @@ export async function POST(request: NextRequest) {
 
         // Generate unique filename
         const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-        const fileName = `${uniqueId}.epub`;
+        const fileName = `${uniqueId}${fileExt}`;
         const filePath = path.join(uploadsDir, fileName);
 
         // Save file
@@ -144,27 +149,34 @@ export async function POST(request: NextRequest) {
         await writeFile(filePath, buffer);
 
         // Parse EPUB
-        let title = file.name.replace(".epub", "");
+        let title = path.basename(file.name, originalExt);
         let author: string | null = null;
         let coverPath: string | null = null;
         let tocItems: TocItem[] = [];
 
         try {
-            const parsed = await parseEpubFile(buffer);
-            title = parsed.metadata.title || title;
-            author = parsed.metadata.author;
-            tocItems = parsed.toc;
+            if (fileExt === ".epub") {
+                const parsed = await parseEpubFile(buffer);
+                title = parsed.metadata.title || title;
+                author = parsed.metadata.author;
+                tocItems = parsed.toc;
 
-            // Save cover image if available
-            if (parsed.coverBuffer && parsed.coverMimeType) {
-                const coverExt = parsed.coverMimeType.split("/")[1] || "jpg";
-                const coverFileName = `${uniqueId}-cover.${coverExt}`;
-                const coverFilePath = path.join(uploadsDir, coverFileName);
-                await writeFile(coverFilePath, parsed.coverBuffer);
-                coverPath = `/uploads/books/${coverFileName}`;
+                // Save cover image if available
+                if (parsed.coverBuffer && parsed.coverMimeType) {
+                    const coverExt = parsed.coverMimeType.split("/")[1] || "jpg";
+                    const coverFileName = `${uniqueId}-cover.${coverExt}`;
+                    const coverFilePath = path.join(uploadsDir, coverFileName);
+                    await writeFile(coverFilePath, parsed.coverBuffer);
+                    coverPath = `/uploads/books/${coverFileName}`;
+                }
+            } else {
+                const parsed = await parseMarkdownFile(buffer);
+                title = parsed.metadata.title || title;
+                author = parsed.metadata.author;
+                tocItems = parsed.toc;
             }
         } catch (parseError) {
-            console.error("Error parsing EPUB:", parseError);
+            console.error("Error parsing book:", parseError);
             // Continue with basic metadata from filename
         }
 
