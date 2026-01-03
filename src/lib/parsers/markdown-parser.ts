@@ -64,12 +64,25 @@ export class MarkdownParser extends BaseParser<ParsedMarkdown> {
 
     private extractFrontMatter(content: string): { metadata: Partial<BookMetadata>; body: string } {
         const lines = content.split(/\r?\n/);
-        if (lines.length === 0 || lines[0].trim() !== "---") {
+        if (lines.length === 0) {
+            return { metadata: {}, body: content };
+        }
+
+        if (lines[0].charCodeAt(0) === 0xfeff) {
+            lines[0] = lines[0].slice(1);
+        }
+
+        let startIndex = 0;
+        while (startIndex < lines.length && lines[startIndex].trim() === "") {
+            startIndex += 1;
+        }
+
+        if (startIndex >= lines.length || lines[startIndex].trim() !== "---") {
             return { metadata: {}, body: content };
         }
 
         let endIndex = -1;
-        for (let i = 1; i < lines.length; i++) {
+        for (let i = startIndex + 1; i < lines.length; i++) {
             if (lines[i].trim() === "---") {
                 endIndex = i;
                 break;
@@ -80,7 +93,7 @@ export class MarkdownParser extends BaseParser<ParsedMarkdown> {
             return { metadata: {}, body: content };
         }
 
-        const matterLines = lines.slice(1, endIndex);
+        const matterLines = lines.slice(startIndex + 1, endIndex);
         const metadata: Partial<BookMetadata> = {};
 
         for (const line of matterLines) {
@@ -244,6 +257,8 @@ export class MarkdownParser extends BaseParser<ParsedMarkdown> {
         const lines = markdown.split(/\r?\n/);
         let html = "";
         let inCodeBlock = false;
+        let codeFenceLanguage: string | null = null;
+        let inHtmlBlock = false;
         let listType: "ul" | "ol" | null = null;
         let paragraph: string[] = [];
 
@@ -266,17 +281,41 @@ export class MarkdownParser extends BaseParser<ParsedMarkdown> {
                 flushParagraph();
                 closeList();
                 if (!inCodeBlock) {
-                    html += "<pre><code>";
+                    const match = /^```(\S+)?/.exec(trimmed);
+                    codeFenceLanguage = match?.[1] ?? null;
+                    const languageClass = codeFenceLanguage
+                        ? ` class="language-${this.escapeHtml(codeFenceLanguage)}"`
+                        : "";
+                    html += `<pre><code${languageClass}>`;
                     inCodeBlock = true;
                 } else {
                     html += "</code></pre>";
                     inCodeBlock = false;
+                    codeFenceLanguage = null;
                 }
                 continue;
             }
 
             if (inCodeBlock) {
                 html += `${this.escapeHtml(line)}\n`;
+                continue;
+            }
+
+            if (inHtmlBlock) {
+                html += `${line}\n`;
+                if (trimmed.endsWith(">")) {
+                    inHtmlBlock = false;
+                }
+                continue;
+            }
+
+            if (trimmed.startsWith("<")) {
+                flushParagraph();
+                closeList();
+                html += `${line}\n`;
+                if (!trimmed.endsWith(">")) {
+                    inHtmlBlock = true;
+                }
                 continue;
             }
 
@@ -287,6 +326,13 @@ export class MarkdownParser extends BaseParser<ParsedMarkdown> {
                 const level = headingMatch[1].length;
                 const text = headingMatch[2].trim();
                 html += `<h${level}>${this.formatInline(text)}</h${level}>`;
+                continue;
+            }
+
+            if (/^(?:-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+                flushParagraph();
+                closeList();
+                html += "<hr />";
                 continue;
             }
 
@@ -327,6 +373,9 @@ export class MarkdownParser extends BaseParser<ParsedMarkdown> {
     private formatInline(text: string): string {
         let escaped = this.escapeHtml(text);
 
+        escaped = escaped.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, alt, url) => {
+            return `<img src="${url}" alt="${alt}" />`;
+        });
         escaped = escaped.replace(/`([^`]+)`/g, "<code>$1</code>");
         escaped = escaped.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
         escaped = escaped.replace(/__([^_]+)__/g, "<strong>$1</strong>");
