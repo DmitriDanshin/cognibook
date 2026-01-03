@@ -28,6 +28,7 @@ import {
     HelpCircle,
     Lightbulb,
     ChevronDown,
+    BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -506,6 +507,17 @@ export default function QuizPage({
                                 <RotateCcw className="h-4 w-4" />
                                 Пройти заново
                             </Button>
+                            {quiz.chapter && (
+                                <Link href={`/library/${quiz.chapter.bookId}?chapterId=${quiz.chapter.id}`} className="w-full">
+                                    <Button
+                                        variant="outline"
+                                        className="w-full gap-2"
+                                    >
+                                        <BookOpen className="h-4 w-4" />
+                                        Обратно к главе
+                                    </Button>
+                                </Link>
+                            )}
                             <Link href="/quizzes" className="w-full">
                                 <Button
                                     variant="outline"
