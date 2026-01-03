@@ -25,8 +25,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
     ArrowLeft,
     BookOpen,
-    CheckCircle2,
-    Circle,
     Clock,
     Copy,
     Download,
@@ -485,14 +483,33 @@ export default function BookReaderPage({
                 return;
             }
 
-            toast.success("Тест успешно загружен");
+            const createdQuizId = data?.id as string | undefined;
+            toast.success(
+                <div className="flex items-center gap-3">
+                    <span>Тест успешно создан</span>
+                    {createdQuizId && (
+                        <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                                router.push(`/quizzes/${createdQuizId}`);
+                                toast.dismiss();
+                            }}
+                            className="h-7 px-3 py-1"
+                        >
+                            Перейти к тесту
+                        </Button>
+                    )}
+                </div>,
+                {
+                    duration: 5000,
+                }
+            );
             setIsQuizDialogOpen(false);
             setQuizValidationErrors([]);
             setQuizJsonText("");
-            const createdQuizId = data?.id as string | undefined;
-            if (createdQuizId) {
-                router.push(`/quizzes/${createdQuizId}`);
-            }
+            // Refresh the book to update quiz status
+            fetchBook();
         } catch (error) {
             console.error("Error uploading quiz:", error);
             toast.error("Не удалось загрузить тест");

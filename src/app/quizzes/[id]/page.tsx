@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, use, useMemo, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -101,6 +102,7 @@ export default function QuizPage({
     params: Promise<{ id: string }>;
 }) {
     const { id } = use(params);
+    const router = useRouter();
     const [quiz, setQuiz] = useState<Quiz | null>(null);
     const [loading, setLoading] = useState(true);
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -542,15 +544,14 @@ export default function QuizPage({
                 <div className="mx-auto max-w-5xl px-3 sm:px-6 lg:px-8">
                     <div className="flex h-14 items-center justify-between sm:h-16">
                         <div className="flex items-center gap-4">
-                            <Link href="/quizzes">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="text-muted-foreground hover:text-foreground"
-                                >
-                                    <ArrowLeft className="h-5 w-5" />
-                                </Button>
-                            </Link>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-muted-foreground hover:text-foreground"
+                                onClick={() => router.back()}
+                            >
+                                <ArrowLeft className="h-5 w-5" />
+                            </Button>
                             <div>
                                 <h1 className="line-clamp-1 text-base font-bold text-foreground sm:text-lg">
                                     {quiz.title}
