@@ -54,3 +54,4 @@ dev.db-journal
 
 # Test files
 test-quiz.json
+.idea
