@@ -25,14 +25,20 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
     ArrowLeft,
     BookOpen,
+    CheckCircle2,
+    Circle,
+    Clock,
     Copy,
     Download,
     FileJson,
+    FileText,
     Play,
     Menu,
     X,
+    XCircle,
     ChevronRight,
     Loader2,
+    Trophy,
     Undo2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -43,6 +49,7 @@ interface Chapter {
     href: string;
     order: number;
     parentId: string | null;
+    quizStatus?: "none" | "created" | "started" | "failed" | "perfect";
     children?: Chapter[];
 }
 
@@ -390,6 +397,21 @@ export default function BookReaderPage({
         }
     };
 
+    const renderQuizStatusIcon = (status: Chapter["quizStatus"]) => {
+        switch (status) {
+            case "perfect":
+                return <span title="Пройден на 100%"><Trophy className="h-3.5 w-3.5 flex-shrink-0 text-amber-400" /></span>;
+            case "started":
+                return <span title="В процессе"><Clock className="h-3.5 w-3.5 flex-shrink-0 text-orange-400" /></span>;
+            case "failed":
+                return <span title="Провален (<50%)"><XCircle className="h-3.5 w-3.5 flex-shrink-0 text-red-400" /></span>;
+            case "created":
+                return <span title="Тест создан"><FileText className="h-3.5 w-3.5 flex-shrink-0 text-blue-400" /></span>;
+            default:
+                return null;
+        }
+    };
+
     const renderChapterItem = (chapter: Chapter, level: number = 0) => {
         const hasChildren = chapter.children && chapter.children.length > 0;
         const isSelected = selectedChapter?.id === chapter.id;
@@ -402,7 +424,10 @@ export default function BookReaderPage({
                             }`}
                         style={{ paddingLeft: `${level * 16 + 16}px` }}
                     >
-                        {chapter.title}
+                        <span className="flex items-center gap-2">
+                            {chapter.title}
+                            {renderQuizStatusIcon(chapter.quizStatus)}
+                        </span>
                     </AccordionTrigger>
                     <AccordionContent className="pb-0">
                         {chapter.children!.map((child) =>
@@ -418,13 +443,14 @@ export default function BookReaderPage({
                 key={chapter.id}
                 onClick={() => handleSelectChapter(chapter)}
                 className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors hover:bg-foreground/5 ${isSelected
-                        ? "bg-foreground/10 text-foreground"
-                        : "text-muted-foreground hover:text-foreground"
+                    ? "bg-foreground/10 text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                     }`}
                 style={{ paddingLeft: `${level * 16 + 16}px` }}
             >
                 <ChevronRight className="h-3 w-3 flex-shrink-0" />
-                <span className="line-clamp-1">{chapter.title}</span>
+                <span className="line-clamp-1 flex-1">{chapter.title}</span>
+                {renderQuizStatusIcon(chapter.quizStatus)}
             </button>
         );
     };

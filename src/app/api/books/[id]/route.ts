@@ -20,6 +20,16 @@ export async function GET(
             include: {
                 chapters: {
                     orderBy: { order: "asc" },
+                    include: {
+                        quiz: {
+                            include: {
+                                attempts: {
+                                    where: { userId: authResult.user.userId },
+                                    orderBy: { score: "desc" },
+                                },
+                            },
+                        },
+                    },
                 },
                 readingProgress: {
                     where: { userId: authResult.user.userId },
@@ -31,7 +41,41 @@ export async function GET(
             return NextResponse.json({ error: "Book not found" }, { status: 404 });
         }
 
-        return NextResponse.json(book);
+        // Calculate quiz status for each chapter
+        type QuizStatus = "none" | "created" | "started" | "failed" | "perfect";
+
+        const getQuizStatus = (quiz: typeof book.chapters[0]["quiz"]): QuizStatus => {
+            if (!quiz) return "none";
+
+            const attempts = quiz.attempts;
+            if (!attempts || attempts.length === 0) return "created";
+
+            // Get best attempt (already sorted by score desc)
+            const bestAttempt = attempts[0];
+            const scorePercent = bestAttempt.totalQuestions > 0
+                ? (bestAttempt.score / bestAttempt.totalQuestions) * 100
+                : 0;
+
+            if (scorePercent === 100) return "perfect";
+            if (scorePercent < 50) return "failed";
+            return "started";
+        };
+
+        // Transform chapters to include quiz status
+        const chaptersWithQuizStatus = book.chapters.map((chapter) => ({
+            id: chapter.id,
+            bookId: chapter.bookId,
+            title: chapter.title,
+            href: chapter.href,
+            order: chapter.order,
+            parentId: chapter.parentId,
+            quizStatus: getQuizStatus(chapter.quiz),
+        }));
+
+        return NextResponse.json({
+            ...book,
+            chapters: chaptersWithQuizStatus,
+        });
     } catch (error) {
         console.error("Error fetching book:", error);
         return NextResponse.json(
