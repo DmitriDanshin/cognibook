@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, use, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, use, useMemo, useRef, memo } from "react";
+import type { RefObject } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -63,6 +64,68 @@ interface ValidationError {
     message: string;
 }
 
+type ChapterContentProps = {
+    contentLoading: boolean;
+    orderedChapters: Chapter[];
+    chapterContents: Record<string, string>;
+    contentRef: RefObject<HTMLDivElement | null>;
+};
+
+const ChapterContent = memo(function ChapterContent({
+    contentLoading,
+    orderedChapters,
+    chapterContents,
+    contentRef,
+}: ChapterContentProps) {
+    return (
+        <ScrollArea className="h-[calc(100dvh-3.5rem)] sm:h-[calc(100dvh-4rem)]">
+            {contentLoading ? (
+                <div className="flex h-full items-center justify-center py-20">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+            ) : orderedChapters.length > 0 ? (
+                <article className="prose mx-auto w-full max-w-3xl px-4 pt-6 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-8 sm:pb-[calc(2.5rem+env(safe-area-inset-bottom))]">
+                    <div ref={contentRef}>
+                        {orderedChapters.map((chapter, index) => {
+                            const chapterHtml = chapterContents[chapter.id];
+                            return (
+                                <section
+                                    key={chapter.id}
+                                    id={`chapter-${chapter.id}`}
+                                    data-chapter-id={chapter.id}
+                                    className="scroll-mt-24"
+                                >
+                                    <h2 className={index === 0 ? "mt-0" : "mt-8"}>
+                                        {chapter.title}
+                                    </h2>
+                                    {chapterHtml === undefined ? (
+                                        <p className="text-muted-foreground">
+                                            Загрузка содержимого главы...
+                                        </p>
+                                    ) : (
+                                        <div
+                                            dangerouslySetInnerHTML={{
+                                                __html: chapterHtml,
+                                            }}
+                                        />
+                                    )}
+                                </section>
+                            );
+                        })}
+                    </div>
+                </article>
+            ) : (
+                <div className="flex h-full flex-col items-center justify-center py-20 text-muted-foreground">
+                    <BookOpen className="mb-4 h-16 w-16" />
+                    <p>Главы не найдены</p>
+                </div>
+            )}
+        </ScrollArea>
+    );
+});
+
+ChapterContent.displayName = "ChapterContent";
+
 const escapeRegExp = (value: string) =>
     value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -90,8 +153,11 @@ export default function BookReaderPage({
     const [book, setBook] = useState<Book | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
-    const [chapterContent, setChapterContent] = useState<string>("");
+    const [chapterContents, setChapterContents] = useState<Record<string, string>>({});
     const [contentLoading, setContentLoading] = useState(false);
+    const [contentReady, setContentReady] = useState(false);
+    const [contentBookId, setContentBookId] = useState<string | null>(null);
+    const [contentChapterIdsKey, setContentChapterIdsKey] = useState<string | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [expandedChapters, setExpandedChapters] = useState<string[]>([]);
     const [isQuizDialogOpen, setIsQuizDialogOpen] = useState(false);
@@ -105,9 +171,30 @@ export default function BookReaderPage({
     );
     const [linkedQuizLoading, setLinkedQuizLoading] = useState(false);
     const contentRef = useRef<HTMLDivElement | null>(null);
+    const scrollViewportRef = useRef<HTMLDivElement | null>(null);
+    const initialScrollDoneRef = useRef(false);
+    const selectedChapterIdRef = useRef<string | null>(null);
     const [isTocReady, setIsTocReady] = useState(false);
     const chapterStorageKey = useMemo(() => `book-last-chapter:${id}`, [id]);
     const tocStorageKey = useMemo(() => `book-toc-expanded:${id}`, [id]);
+    const chapterIdsKey = useMemo(
+        () => (book?.chapters ?? []).map((chapter) => chapter.id).join("|"),
+        [book]
+    );
+    const orderedChapters = useMemo(
+        () =>
+            (book?.chapters ?? [])
+                .slice()
+                .sort((chapterA, chapterB) => chapterA.order - chapterB.order),
+        [book]
+    );
+    const chapterLookup = useMemo(
+        () =>
+            new Map(
+                (book?.chapters ?? []).map((chapter) => [chapter.id, chapter])
+            ),
+        [book]
+    );
 
     const fetchBook = useCallback(async () => {
         try {
@@ -172,32 +259,140 @@ export default function BookReaderPage({
         }
     }, [id, requestedChapterId, chapterStorageKey, tocStorageKey]);
 
+    const fetchAllChapterContents = useCallback(
+        async (chapters: Chapter[]) => {
+            if (chapters.length === 0) {
+                return { contentMap: {}, failedCount: 0 };
+            }
+
+            const failed: string[] = [];
+            const entries = await Promise.all(
+                chapters.map(async (chapter) => {
+                    try {
+                        const response = await fetch(
+                            `/api/books/${id}/chapters/${chapter.id}`
+                        );
+                        if (!response.ok) throw new Error("Failed to fetch chapter");
+                        const data = await response.json();
+                        return [chapter.id, data.content || ""] as const;
+                    } catch (error) {
+                        console.error("Error fetching chapter:", error);
+                        failed.push(chapter.id);
+                        return [
+                            chapter.id,
+                            "<p>Не удалось загрузить содержимое главы.</p>",
+                        ] as const;
+                    }
+                })
+            );
+
+            return {
+                contentMap: Object.fromEntries(entries),
+                failedCount: failed.length,
+            };
+        },
+        [id]
+    );
+
+    const scrollToChapter = useCallback(
+        (chapterId: string, behavior: ScrollBehavior = "smooth") => {
+            const element = document.getElementById(`chapter-${chapterId}`);
+            element?.scrollIntoView({ behavior, block: "start" });
+        },
+        []
+    );
+
+    const getAncestorIds = useCallback(
+        (chapter: Chapter) => {
+            const ancestors: string[] = [];
+            let current: Chapter | undefined = chapter;
+            while (current?.parentId) {
+                ancestors.push(current.parentId);
+                current = chapterLookup.get(current.parentId);
+            }
+            return ancestors;
+        },
+        [chapterLookup]
+    );
+
     useEffect(() => {
         fetchBook();
     }, [fetchBook]);
 
-    const fetchChapterContent = useCallback(async (chapter: Chapter) => {
-        setContentLoading(true);
-        try {
-            const response = await fetch(`/api/books/${id}/chapters/${chapter.id}`);
-            if (!response.ok) throw new Error("Failed to fetch chapter");
-            const data = await response.json();
-            const rawContent = data.content || "";
-            setChapterContent(rawContent);
-        } catch (error) {
-            console.error("Error fetching chapter:", error);
-            toast.error("Не удалось загрузить содержимое главы");
-            setChapterContent("<p>Не удалось загрузить содержимое главы.</p>");
-        } finally {
-            setContentLoading(false);
-        }
-    }, [id, highlightQuote, requestedChapterId]);
+    useEffect(() => {
+        initialScrollDoneRef.current = false;
+    }, [id]);
 
     useEffect(() => {
-        if (selectedChapter) {
-            fetchChapterContent(selectedChapter);
+        selectedChapterIdRef.current = selectedChapter?.id ?? null;
+    }, [selectedChapter?.id]);
+
+    useEffect(() => {
+        if (!contentReady) return;
+        if (!contentRef.current) return;
+        scrollViewportRef.current =
+            contentRef.current.closest<HTMLDivElement>(
+                '[data-slot="scroll-area-viewport"]'
+            ) ?? null;
+    }, [contentReady]);
+
+    useEffect(() => {
+        if (!book) return;
+        if (contentBookId === book.id && contentChapterIdsKey === chapterIdsKey) {
+            return;
         }
-    }, [selectedChapter, fetchChapterContent]);
+
+        let isCancelled = false;
+        setContentLoading(true);
+        setContentReady(false);
+        setChapterContents({});
+
+        const loadContents = async () => {
+            const { contentMap, failedCount } = await fetchAllChapterContents(
+                orderedChapters
+            );
+            if (isCancelled) return;
+            setChapterContents(contentMap);
+            setContentLoading(false);
+            setContentReady(true);
+            setContentBookId(book.id);
+            setContentChapterIdsKey(chapterIdsKey);
+            if (failedCount > 0) {
+                toast.error("Не удалось загрузить некоторые главы");
+            }
+        };
+
+        void loadContents();
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [
+        book,
+        chapterIdsKey,
+        contentBookId,
+        contentChapterIdsKey,
+        fetchAllChapterContents,
+        orderedChapters,
+    ]);
+
+    useEffect(() => {
+        if (!contentReady || contentBookId !== book?.id || initialScrollDoneRef.current) {
+            return;
+        }
+        const initialChapterId = requestedChapterId || selectedChapter?.id;
+        if (initialChapterId) {
+            scrollToChapter(initialChapterId, "auto");
+        }
+        initialScrollDoneRef.current = true;
+    }, [
+        book?.id,
+        contentBookId,
+        contentReady,
+        requestedChapterId,
+        scrollToChapter,
+        selectedChapter?.id,
+    ]);
 
     useEffect(() => {
         if (!selectedChapter) return;
@@ -209,6 +404,23 @@ export default function BookReaderPage({
     }, [selectedChapter, chapterStorageKey]);
 
     useEffect(() => {
+        if (!selectedChapter) return;
+        const ancestorIds = getAncestorIds(selectedChapter);
+        if (ancestorIds.length === 0) return;
+        setExpandedChapters((prev) => {
+            const next = new Set(prev);
+            let changed = false;
+            ancestorIds.forEach((ancestorId) => {
+                if (!next.has(ancestorId)) {
+                    next.add(ancestorId);
+                    changed = true;
+                }
+            });
+            return changed ? Array.from(next) : prev;
+        });
+    }, [getAncestorIds, selectedChapter]);
+
+    useEffect(() => {
         if (!isTocReady) return;
         try {
             localStorage.setItem(tocStorageKey, JSON.stringify(expandedChapters));
@@ -216,6 +428,53 @@ export default function BookReaderPage({
             // ignore storage errors
         }
     }, [expandedChapters, isTocReady, tocStorageKey]);
+
+    useEffect(() => {
+        if (!contentReady || contentBookId !== book?.id) return;
+        if (!scrollViewportRef.current) return;
+        if (orderedChapters.length === 0) return;
+
+        const viewport = scrollViewportRef.current;
+        const chapterElements = orderedChapters
+            .map((chapter) => document.getElementById(`chapter-${chapter.id}`))
+            .filter((element): element is HTMLElement => Boolean(element));
+
+        if (chapterElements.length === 0) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (!initialScrollDoneRef.current) return;
+                const visibleEntries = entries
+                    .filter((entry) => entry.isIntersecting)
+                    .sort(
+                        (entryA, entryB) =>
+                            entryA.boundingClientRect.top -
+                            entryB.boundingClientRect.top
+                    );
+                if (visibleEntries.length === 0) return;
+
+                const target = visibleEntries[0].target as HTMLElement;
+                const chapterId = target.dataset.chapterId;
+                if (!chapterId) return;
+                if (selectedChapterIdRef.current === chapterId) return;
+                const chapter = chapterLookup.get(chapterId);
+                if (!chapter) return;
+                selectedChapterIdRef.current = chapterId;
+                setSelectedChapter(chapter);
+            },
+            {
+                root: viewport,
+                rootMargin: "0px 0px -60% 0px",
+                threshold: 0,
+            }
+        );
+
+        chapterElements.forEach((element) => observer.observe(element));
+
+        return () => {
+            observer.disconnect();
+        };
+    }, [book?.id, chapterLookup, contentBookId, contentReady, orderedChapters]);
 
     const fetchLinkedQuiz = useCallback(async (chapterId: string) => {
         setLinkedQuizLoading(true);
@@ -237,17 +496,28 @@ export default function BookReaderPage({
             setLinkedQuiz(null);
             return;
         }
-        fetchLinkedQuiz(selectedChapter.id);
-    }, [fetchLinkedQuiz, selectedChapter]);
+        const timeout = setTimeout(() => {
+            fetchLinkedQuiz(selectedChapter.id);
+        }, 250);
+        return () => clearTimeout(timeout);
+    }, [fetchLinkedQuiz, selectedChapter?.id]);
+
+    const requestedChapterContent = requestedChapterId
+        ? chapterContents[requestedChapterId]
+        : undefined;
 
     useEffect(() => {
         if (!highlightQuote || !requestedChapterId) return;
-        if (selectedChapter?.id !== requestedChapterId) return;
+        if (requestedChapterContent === undefined) return;
         const container = contentRef.current;
         if (!container) return;
+        const chapterNode = container.querySelector<HTMLElement>(
+            `[data-chapter-id="${requestedChapterId}"]`
+        );
+        if (!chapterNode) return;
         const timeout = setTimeout(() => {
             const clearHighlights = () => {
-                const marks = container.querySelectorAll(
+                const marks = chapterNode.querySelectorAll(
                     'mark[data-quote-highlight="true"]'
                 );
                 marks.forEach((mark) => {
@@ -286,7 +556,7 @@ export default function BookReaderPage({
             const trimmedQuote = highlightQuote.trim();
             if (!trimmedQuote) return;
 
-            const textContent = container.textContent || "";
+            const textContent = chapterNode.textContent || "";
             const escapedQuote = escapeRegExp(trimmedQuote);
             const quotePattern = escapedQuote.replace(/\s+/g, "\\s+");
             const quoteRegex = new RegExp(quotePattern, "u");
@@ -295,8 +565,8 @@ export default function BookReaderPage({
 
             const startIndex = match.index;
             const endIndex = startIndex + match[0].length;
-            const startNode = getNodeAtTextIndex(container, startIndex);
-            const endNode = getNodeAtTextIndex(container, endIndex);
+            const startNode = getNodeAtTextIndex(chapterNode, startIndex);
+            const endNode = getNodeAtTextIndex(chapterNode, endIndex);
             if (!startNode || !endNode) return;
 
             const range = document.createRange();
@@ -317,7 +587,7 @@ export default function BookReaderPage({
             mark.scrollIntoView({ behavior: "smooth", block: "center" });
         }, 100);
         return () => clearTimeout(timeout);
-    }, [chapterContent, highlightQuote, requestedChapterId, selectedChapter?.id]);
+    }, [highlightQuote, requestedChapterContent, requestedChapterId]);
 
     const buildChapterTree = (chapters: Chapter[]): Chapter[] => {
         const chapterMap = new Map<string, Chapter>();
@@ -344,9 +614,18 @@ export default function BookReaderPage({
     };
 
     const handleCopyText = async () => {
+        if (!selectedChapter) {
+            toast.error("Выберите главу для копирования");
+            return;
+        }
+        const chapterHtml = chapterContents[selectedChapter.id];
+        if (chapterHtml === undefined) {
+            toast.error("Содержимое главы еще загружается");
+            return;
+        }
         // Strip HTML tags for plain text
         const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = chapterContent;
+        tempDiv.innerHTML = chapterHtml;
         const plainText = tempDiv.textContent || tempDiv.innerText;
 
         try {
@@ -371,8 +650,17 @@ export default function BookReaderPage({
     };
 
     const handleDownloadTxt = () => {
+        if (!selectedChapter) {
+            toast.error("Выберите главу для скачивания");
+            return;
+        }
+        const chapterHtml = chapterContents[selectedChapter.id];
+        if (chapterHtml === undefined) {
+            toast.error("Содержимое главы еще загружается");
+            return;
+        }
         const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = chapterContent;
+        tempDiv.innerHTML = chapterHtml;
         const plainText = tempDiv.textContent || tempDiv.innerText;
 
         const blob = new Blob([plainText], { type: "text/plain;charset=utf-8" });
@@ -389,7 +677,9 @@ export default function BookReaderPage({
     };
 
     const handleSelectChapter = (chapter: Chapter) => {
+        selectedChapterIdRef.current = chapter.id;
         setSelectedChapter(chapter);
+        scrollToChapter(chapter.id);
         if (typeof window !== "undefined" && window.innerWidth < 1024) {
             setSidebarOpen(false);
         }
@@ -422,7 +712,13 @@ export default function BookReaderPage({
                             }`}
                         style={{ paddingLeft: `${level * 16 + 16}px` }}
                     >
-                        <span className="flex items-center gap-2">
+                        <span
+                            className="flex flex-1 items-center gap-2"
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                handleSelectChapter(chapter);
+                            }}
+                        >
                             {chapter.title}
                             {renderQuizStatusIcon(chapter.quizStatus)}
                         </span>
@@ -859,25 +1155,12 @@ export default function BookReaderPage({
                 </header>
 
                 {/* Reading Area */}
-                <ScrollArea className="h-[calc(100dvh-3.5rem)] sm:h-[calc(100dvh-4rem)]">
-                    {contentLoading ? (
-                        <div className="flex h-full items-center justify-center py-20">
-                            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                        </div>
-                    ) : chapterContent ? (
-                        <article className="prose mx-auto w-full max-w-3xl px-4 pt-6 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-8 sm:pb-[calc(2.5rem+env(safe-area-inset-bottom))]">
-                            <div
-                                ref={contentRef}
-                                dangerouslySetInnerHTML={{ __html: chapterContent }}
-                            />
-                        </article>
-                    ) : (
-                        <div className="flex h-full flex-col items-center justify-center py-20 text-muted-foreground">
-                            <BookOpen className="mb-4 h-16 w-16" />
-                            <p>Выберите главу для чтения</p>
-                        </div>
-                    )}
-                </ScrollArea>
+                <ChapterContent
+                    contentLoading={contentLoading}
+                    orderedChapters={orderedChapters}
+                    chapterContents={chapterContents}
+                    contentRef={contentRef}
+                />
             </main>
         </div>
     );
