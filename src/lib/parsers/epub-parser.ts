@@ -409,7 +409,7 @@ export class EpubParser extends BaseParser<ParsedEpub> {
         };
     }
 
-    async getChapterContent(href: string, bookId?: string): Promise<string> {
+    async getChapterContent(href: string, sourceId?: string): Promise<string> {
         // Remove fragment identifier
         const cleanHref = href.split("#")[0];
         const chapterPath = this.resolvePath(cleanHref);
@@ -420,10 +420,10 @@ export class EpubParser extends BaseParser<ParsedEpub> {
         }
 
         // Extract body content and clean up
-        return this.extractBodyContent(content, cleanHref, bookId);
+        return this.extractBodyContent(content, cleanHref, sourceId);
     }
 
-    private extractBodyContent(html: string, chapterHref: string, bookId?: string): string {
+    private extractBodyContent(html: string, chapterHref: string, sourceId?: string): string {
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, "text/html");
 
@@ -438,7 +438,7 @@ export class EpubParser extends BaseParser<ParsedEpub> {
             const node = body.childNodes[i];
             if (node.nodeType === 1) {
                 // Element node
-                bodyHtml += this.serializeElement(node as Element, chapterHref, bookId);
+                bodyHtml += this.serializeElement(node as Element, chapterHref, sourceId);
             } else if (node.nodeType === 3) {
                 // Text node
                 bodyHtml += node.textContent || "";
@@ -448,7 +448,7 @@ export class EpubParser extends BaseParser<ParsedEpub> {
         return bodyHtml;
     }
 
-    private serializeElement(element: Element, chapterHref: string, bookId?: string): string {
+    private serializeElement(element: Element, chapterHref: string, sourceId?: string): string {
         const tagName = element.tagName.toLowerCase();
 
         // Skip script and style tags
@@ -471,8 +471,8 @@ export class EpubParser extends BaseParser<ParsedEpub> {
                 const chapterDir = path.dirname(chapterHref);
                 const imagePath = chapterDir === "." ? value : `${chapterDir}/${value}`;
                 const fullPath = this.opfDir ? `${this.opfDir}/${imagePath}` : imagePath;
-                if (bookId) {
-                    value = `/api/books/${bookId}/image?path=${encodeURIComponent(fullPath)}`;
+                if (sourceId) {
+                    value = `/api/sources/${sourceId}/image?path=${encodeURIComponent(fullPath)}`;
                 } else {
                     value = `/api/epub-image?path=${encodeURIComponent(fullPath)}`;
                 }
@@ -492,7 +492,7 @@ export class EpubParser extends BaseParser<ParsedEpub> {
             for (let i = 0; i < element.childNodes.length; i++) {
                 const node = element.childNodes[i];
                 if (node.nodeType === 1) {
-                    html += this.serializeElement(node as Element, chapterHref, bookId);
+                    html += this.serializeElement(node as Element, chapterHref, sourceId);
                 } else if (node.nodeType === 3) {
                     html += this.escapeHtml(node.textContent || "");
                 }
@@ -528,9 +528,9 @@ export async function parseEpubFile(buffer: Buffer): Promise<ParsedEpub> {
 export async function getEpubChapterContent(
     buffer: Buffer,
     chapterHref: string,
-    bookId?: string
+    sourceId?: string
 ): Promise<string> {
     const parser = new EpubParser(buffer);
     await parser.parse();
-    return parser.getChapterContent(chapterHref, bookId);
+    return parser.getChapterContent(chapterHref, sourceId);
 }

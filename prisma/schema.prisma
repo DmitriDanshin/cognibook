@@ -21,17 +21,17 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  books           Book[]
+  sources         Source[]
   quizzes         Quiz[]
   quizAttempts    QuizAttempt[]
   readingProgress ReadingProgress[]
 }
 
 // ========================
-// EPUB Library Models
+// Source Library Models
 // ========================
 
-model Book {
+model Source {
   id          String   @id @default(cuid())
   title       String
   author      String?
@@ -48,17 +48,18 @@ model Book {
   readingProgress ReadingProgress[]
 
   @@unique([fileHash, userId])
+  @@map("Book")
 }
 
 model Chapter {
   id        String   @id @default(cuid())
-  bookId    String
+  sourceId  String   @map("bookId")
   title     String
   href      String
   order     Int
   parentId  String?
-  
-  book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  source    Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   parent    Chapter? @relation("ChapterHierarchy", fields: [parentId], references: [id])
   children  Chapter[] @relation("ChapterHierarchy")
   quiz      Quiz?
@@ -66,16 +67,16 @@ model Chapter {
 
 model ReadingProgress {
   id        String   @id @default(cuid())
-  bookId    String
+  sourceId  String   @map("bookId")
   chapterId String?
   progress  Float    @default(0)
   updatedAt DateTime @updatedAt
   userId    String
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  source    Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
-  @@unique([bookId, userId])
+  @@unique([sourceId, userId])
 }
 
 // ========================

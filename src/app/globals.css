@@ -127,7 +127,7 @@
   }
 }
 
-/* Custom prose styles for book reader */
+/* Custom prose styles for source reader */
 .prose {
   max-width: 65ch;
   color: var(--foreground);

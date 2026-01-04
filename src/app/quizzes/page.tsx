@@ -50,8 +50,8 @@ interface Quiz {
         id: string;
         title: string;
         order: number;
-        bookId: string;
-        book: {
+        sourceId: string;
+        source: {
             id: string;
             title: string;
             author: string | null;
@@ -59,7 +59,7 @@ interface Quiz {
     } | null;
 }
 
-interface Book {
+interface Source {
     id: string;
     title: string;
     author: string | null;
@@ -105,11 +105,11 @@ const STATUS_FILTERS: { value: QuizStatusFilter; label: string }[] = [
 export default function QuizzesPage() {
     const router = useRouter();
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
-    const [books, setBooks] = useState<Book[]>([]);
-    const [booksLoading, setBooksLoading] = useState(true);
+    const [sources, setSources] = useState<Source[]>([]);
+    const [sourcesLoading, setSourcesLoading] = useState(true);
     const [chapters, setChapters] = useState<Chapter[]>([]);
     const [chaptersLoading, setChaptersLoading] = useState(false);
-    const [selectedBookId, setSelectedBookId] = useState("");
+    const [selectedSourceId, setSelectedSourceId] = useState("");
     const [selectedChapterId, setSelectedChapterId] = useState("");
     const [chapterSearch, setChapterSearch] = useState("");
     const [loading, setLoading] = useState(true);
@@ -198,28 +198,28 @@ export default function QuizzesPage() {
         setQuizStatuses(statuses);
     }, [quizzes]);
 
-    const fetchBooks = useCallback(async () => {
+    const fetchSources = useCallback(async () => {
         try {
-            const response = await fetch("/api/books");
-            if (!response.ok) throw new Error("Failed to fetch books");
+            const response = await fetch("/api/sources");
+            if (!response.ok) throw new Error("Failed to fetch sources");
             const data = await response.json();
-            setBooks(data);
+            setSources(data);
         } catch (error) {
-            console.error("Error fetching books:", error);
-            toast.error("Не удалось загрузить книги");
+            console.error("Error fetching sources:", error);
+            toast.error("Не удалось загрузить источники");
         } finally {
-            setBooksLoading(false);
+            setSourcesLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        fetchBooks();
-    }, [fetchBooks]);
+        fetchSources();
+    }, [fetchSources]);
 
-    const fetchChapters = useCallback(async (bookId: string) => {
+    const fetchChapters = useCallback(async (sourceId: string) => {
         setChaptersLoading(true);
         try {
-            const response = await fetch(`/api/books/${bookId}`);
+            const response = await fetch(`/api/sources/${sourceId}`);
             if (!response.ok) throw new Error("Failed to fetch chapters");
             const data = await response.json();
             setChapters(data.chapters || []);
@@ -231,15 +231,15 @@ export default function QuizzesPage() {
         }
     }, []);
 
-    const handleBookChange = async (bookId: string) => {
-        setSelectedBookId(bookId);
+    const handleSourceChange = async (sourceId: string) => {
+        setSelectedSourceId(sourceId);
         setSelectedChapterId("");
         setChapterSearch("");
-        if (!bookId) {
+        if (!sourceId) {
             setChapters([]);
             return;
         }
-        await fetchChapters(bookId);
+        await fetchChapters(sourceId);
     };
 
     const buildChapterOptions = useCallback((chapterList: Chapter[]) => {
@@ -282,13 +282,13 @@ export default function QuizzesPage() {
         setValidationErrors([]);
 
         try {
-            if (selectedBookId && !selectedChapterId) {
-                toast.error("Выберите главу для выбранной книги");
+            if (selectedSourceId && !selectedChapterId) {
+                toast.error("Выберите главу для выбранного источника");
                 return;
             }
 
-            if (selectedBookId) {
-                formData.append("bookId", selectedBookId);
+            if (selectedSourceId) {
+                formData.append("sourceId", selectedSourceId);
                 formData.append("chapterId", selectedChapterId);
             }
 
@@ -454,26 +454,26 @@ export default function QuizzesPage() {
         return quizzes.filter((quiz) => quizStatuses.get(quiz.id) === statusFilter);
     }, [quizzes, quizStatuses, statusFilter]);
 
-    const bookGroups = useMemo(() => {
+    const sourceGroups = useMemo(() => {
         const map = new Map<
             string,
-            { book: { id: string; title: string; author: string | null }; quizzes: Quiz[] }
+            { source: { id: string; title: string; author: string | null }; quizzes: Quiz[] }
         >();
 
         filteredQuizzes.forEach((quiz) => {
-            if (!quiz.chapter?.book) return;
-            const bookId = quiz.chapter.book.id;
-            if (!map.has(bookId)) {
-                map.set(bookId, {
-                    book: {
-                        id: quiz.chapter.book.id,
-                        title: quiz.chapter.book.title,
-                        author: quiz.chapter.book.author ?? null,
+            if (!quiz.chapter?.source) return;
+            const sourceId = quiz.chapter.source.id;
+            if (!map.has(sourceId)) {
+                map.set(sourceId, {
+                    source: {
+                        id: quiz.chapter.source.id,
+                        title: quiz.chapter.source.title,
+                        author: quiz.chapter.source.author ?? null,
                     },
                     quizzes: [],
                 });
             }
-            map.get(bookId)!.quizzes.push(quiz);
+            map.get(sourceId)!.quizzes.push(quiz);
         });
 
         const groups = Array.from(map.values());
@@ -486,7 +486,7 @@ export default function QuizzesPage() {
             });
         });
 
-        return groups.sort((a, b) => a.book.title.localeCompare(b.book.title));
+        return groups.sort((a, b) => a.source.title.localeCompare(b.source.title));
     }, [filteredQuizzes]);
 
     const otherQuizzes = useMemo(
@@ -499,22 +499,22 @@ export default function QuizzesPage() {
             if (otherQuizzes.length > 0) return;
         } else if (
             selectedSection &&
-            bookGroups.some((group) => group.book.id === selectedSection)
+            sourceGroups.some((group) => group.source.id === selectedSection)
         ) {
             return;
         }
 
-        if (bookGroups.length > 0) {
-            setSelectedSection(bookGroups[0].book.id);
+        if (sourceGroups.length > 0) {
+            setSelectedSection(sourceGroups[0].source.id);
         } else if (otherQuizzes.length > 0) {
             setSelectedSection("other");
         } else {
             setSelectedSection("");
         }
-    }, [bookGroups, otherQuizzes, selectedSection]);
+    }, [sourceGroups, otherQuizzes, selectedSection]);
 
-    const selectedBookGroup = bookGroups.find(
-        (group) => group.book.id === selectedSection
+    const selectedSourceGroup = sourceGroups.find(
+        (group) => group.source.id === selectedSection
     );
     const showingOther = selectedSection === "other";
 
@@ -548,7 +548,7 @@ export default function QuizzesPage() {
                     >
                         {quiz.chapter ? (
                             <Link
-                                href={`/library/${quiz.chapter.bookId}?chapterId=${quiz.chapter.id}`}
+                                href={`/library/${quiz.chapter.sourceId}?chapterId=${quiz.chapter.id}`}
                                 className="hover:text-blue-600 transition-colors"
                             >
                                 {heading}
@@ -570,7 +570,7 @@ export default function QuizzesPage() {
                         {getLastAttemptBadge(quiz)}
                         {mode === "other" && (
                             <Badge variant="secondary">
-                                Без книги
+                                Без источника
                             </Badge>
                         )}
                     </div>
@@ -722,27 +722,27 @@ export default function QuizzesPage() {
 
                                     <div className="rounded-xl border border-border bg-muted/40 p-4">
                                         <div className="mb-3 text-sm font-medium text-foreground">
-                                            Привязка к книге (необязательно)
+                                            Привязка к источнику (необязательно)
                                         </div>
                                         <div className="space-y-3">
                                             <label className="text-sm text-muted-foreground">
-                                                Книга
+                                                Источник
                                             </label>
                                             <select
-                                                value={selectedBookId}
-                                                onChange={(e) => handleBookChange(e.target.value)}
+                                                value={selectedSourceId}
+                                                onChange={(e) => handleSourceChange(e.target.value)}
                                                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-foreground/60 focus:outline-none"
-                                                disabled={uploading || booksLoading}
+                                                disabled={uploading || sourcesLoading}
                                             >
                                                 <option value="">Не привязывать</option>
-                                                {books.map((book) => (
-                                                    <option key={book.id} value={book.id}>
-                                                        {book.title}
+                                                {sources.map((source) => (
+                                                    <option key={source.id} value={source.id}>
+                                                        {source.title}
                                                     </option>
                                                 ))}
                                             </select>
 
-                                            {selectedBookId && (
+                                            {selectedSourceId && (
                                                 <>
                                                     <label className="text-sm text-muted-foreground">
                                                         Глава
@@ -895,19 +895,19 @@ export default function QuizzesPage() {
                         ) : (
                             <>
                                 <div className="flex flex-wrap gap-3">
-                                    {bookGroups.map((group) => (
+                                    {sourceGroups.map((group) => (
                                         <button
-                                            key={group.book.id}
+                                            key={group.source.id}
                                             type="button"
-                                            onClick={() => setSelectedSection(group.book.id)}
-                                            className={`w-full max-w-full rounded-xl border px-4 py-3 text-left transition-all sm:w-56 ${selectedSection === group.book.id
+                                            onClick={() => setSelectedSection(group.source.id)}
+                                            className={`w-full max-w-full rounded-xl border px-4 py-3 text-left transition-all sm:w-56 ${selectedSection === group.source.id
                                                 ? "border-foreground/40 bg-foreground/10 text-foreground"
                                                 : "border-border bg-muted/40 text-muted-foreground hover:border-foreground/30 hover:bg-muted/60"
                                                 }`}
-                                            title={group.book.title}
+                                            title={group.source.title}
                                         >
                                             <div className="line-clamp-2 text-sm font-semibold break-words">
-                                                {group.book.title}
+                                                {group.source.title}
                                             </div>
                                             <div className="mt-1 text-xs text-muted-foreground">
                                                 {group.quizzes.length} тестов
@@ -931,28 +931,28 @@ export default function QuizzesPage() {
                                     )}
                                 </div>
 
-                                {selectedBookGroup && (
+                                {selectedSourceGroup && (
                                     <section className="space-y-4">
                                         <div>
                                             <h2
                                                 className="text-xl font-semibold text-foreground break-words line-clamp-2"
-                                                title={selectedBookGroup.book.title}
+                                                title={selectedSourceGroup.source.title}
                                             >
                                                 <Link
-                                                    href={`/library/${selectedBookGroup.book.id}`}
+                                                    href={`/library/${selectedSourceGroup.source.id}`}
                                                     className="hover:text-blue-600 transition-colors"
                                                 >
-                                                    {selectedBookGroup.book.title}
+                                                    {selectedSourceGroup.source.title}
                                                 </Link>
                                             </h2>
-                                            {selectedBookGroup.book.author && (
+                                            {selectedSourceGroup.source.author && (
                                                 <div className="text-sm text-muted-foreground">
-                                                    {selectedBookGroup.book.author}
+                                                    {selectedSourceGroup.source.author}
                                                 </div>
                                             )}
                                         </div>
                                         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                                            {selectedBookGroup.quizzes.map((quiz) =>
+                                            {selectedSourceGroup.quizzes.map((quiz) =>
                                                 renderQuizCard(quiz, "chapter")
                                             )}
                                         </div>

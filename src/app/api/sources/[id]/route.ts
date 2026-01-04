@@ -15,7 +15,7 @@ export async function GET(
 
     try {
         const { id } = await params;
-        const book = await prisma.book.findUnique({
+        const source = await prisma.source.findUnique({
             where: { id, userId: authResult.user.userId },
             include: {
                 chapters: {
@@ -37,14 +37,14 @@ export async function GET(
             },
         });
 
-        if (!book) {
-            return NextResponse.json({ error: "Book not found" }, { status: 404 });
+        if (!source) {
+            return NextResponse.json({ error: "Source not found" }, { status: 404 });
         }
 
         // Calculate quiz status for each chapter
         type QuizStatus = "none" | "created" | "started" | "failed" | "perfect";
 
-        const getQuizStatus = (quiz: typeof book.chapters[0]["quiz"]): QuizStatus => {
+        const getQuizStatus = (quiz: typeof source.chapters[0]["quiz"]): QuizStatus => {
             if (!quiz) return "none";
 
             const attempts = quiz.attempts;
@@ -62,9 +62,9 @@ export async function GET(
         };
 
         // Transform chapters to include quiz status
-        const chaptersWithQuizStatus = book.chapters.map((chapter) => ({
+        const chaptersWithQuizStatus = source.chapters.map((chapter) => ({
             id: chapter.id,
-            bookId: chapter.bookId,
+            sourceId: chapter.sourceId,
             title: chapter.title,
             href: chapter.href,
             order: chapter.order,
@@ -73,13 +73,13 @@ export async function GET(
         }));
 
         return NextResponse.json({
-            ...book,
+            ...source,
             chapters: chaptersWithQuizStatus,
         });
     } catch (error) {
-        console.error("Error fetching book:", error);
+        console.error("Error fetching source:", error);
         return NextResponse.json(
-            { error: "Failed to fetch book" },
+            { error: "Failed to fetch source" },
             { status: 500 }
         );
     }
@@ -96,17 +96,17 @@ export async function DELETE(
 
     try {
         const { id } = await params;
-        const book = await prisma.book.findUnique({
+        const source = await prisma.source.findUnique({
             where: { id, userId: authResult.user.userId },
         });
 
-        if (!book) {
-            return NextResponse.json({ error: "Book not found" }, { status: 404 });
+        if (!source) {
+            return NextResponse.json({ error: "Source not found" }, { status: 404 });
         }
 
         // Delete file from filesystem
-        if (book.filePath) {
-            const fullPath = path.join(process.cwd(), book.filePath);
+        if (source.filePath) {
+            const fullPath = path.join(process.cwd(), source.filePath);
             try {
                 await unlink(fullPath);
             } catch {
@@ -115,15 +115,15 @@ export async function DELETE(
         }
 
         // Delete from database (cascades to chapters and reading progress)
-        await prisma.book.delete({
+        await prisma.source.delete({
             where: { id },
         });
 
         return NextResponse.json({ success: true });
     } catch (error) {
-        console.error("Error deleting book:", error);
+        console.error("Error deleting source:", error);
         return NextResponse.json(
-            { error: "Failed to delete book" },
+            { error: "Failed to delete source" },
             { status: 500 }
         );
     }

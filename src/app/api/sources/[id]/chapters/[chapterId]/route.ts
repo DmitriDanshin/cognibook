@@ -26,10 +26,10 @@ export async function GET(
             // Get chapter title from DB (fast query)
             const chapter = await prisma.chapter.findUnique({
                 where: { id: chapterId },
-                select: { id: true, title: true, bookId: true },
+                select: { id: true, title: true, sourceId: true },
             });
 
-            if (chapter && chapter.bookId === id) {
+            if (chapter && chapter.sourceId === id) {
                 return NextResponse.json(
                     { id: chapter.id, title: chapter.title, content: cachedContent },
                     {
@@ -41,42 +41,42 @@ export async function GET(
             }
         }
 
-        // Get book and chapter
-        const book = await prisma.book.findUnique({
+        // Get source and chapter
+        const source = await prisma.source.findUnique({
             where: { id, userId: authResult.user.userId },
         });
 
-        if (!book) {
-            return NextResponse.json({ error: "Book not found" }, { status: 404 });
+        if (!source) {
+            return NextResponse.json({ error: "Source not found" }, { status: 404 });
         }
 
         const chapter = await prisma.chapter.findUnique({
             where: { id: chapterId },
         });
 
-        if (!chapter || chapter.bookId !== id) {
+        if (!chapter || chapter.sourceId !== id) {
             return NextResponse.json({ error: "Chapter not found" }, { status: 404 });
         }
 
-        // Try to get cached book buffer, otherwise read from disk
+        // Try to get cached source buffer, otherwise read from disk
         const bufferCacheKey = `buffer:${id}`;
-        let bookBuffer = cache.get(bufferCacheKey) as Buffer | undefined;
-        if (!bookBuffer) {
-            const bookPath = path.join(process.cwd(), book.filePath);
-            bookBuffer = await readFile(bookPath);
-            cache.set(bufferCacheKey, bookBuffer);
+        let sourceBuffer = cache.get(bufferCacheKey) as Buffer | undefined;
+        if (!sourceBuffer) {
+            const sourcePath = path.join(process.cwd(), source.filePath);
+            sourceBuffer = await readFile(sourcePath);
+            cache.set(bufferCacheKey, sourceBuffer);
         }
 
-        const fileExt = path.extname(book.filePath).toLowerCase();
+        const fileExt = path.extname(source.filePath).toLowerCase();
         let content = "";
 
         if (fileExt === ".epub") {
-            content = await getEpubChapterContent(bookBuffer, chapter.href, id);
+            content = await getEpubChapterContent(sourceBuffer, chapter.href, id);
         } else if (fileExt === ".md" || fileExt === ".markdown") {
-            content = await getMarkdownChapterContent(bookBuffer, chapter.href);
+            content = await getMarkdownChapterContent(sourceBuffer, chapter.href);
         } else {
             return NextResponse.json(
-                { error: "Unsupported book format" },
+                { error: "Unsupported source format" },
                 { status: 400 }
             );
         }

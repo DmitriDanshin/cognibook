@@ -55,7 +55,7 @@ interface Chapter {
     children?: Chapter[];
 }
 
-interface Book {
+interface Source {
     id: string;
     title: string;
     author: string | null;
@@ -144,7 +144,7 @@ const getExpandableChapterIds = (chapters: Chapter[]) => {
     return Array.from(parentIds);
 };
 
-export default function BookReaderPage({
+export default function SourceReaderPage({
     params,
 }: {
     params: Promise<{ id: string }>;
@@ -155,13 +155,13 @@ export default function BookReaderPage({
     const requestedChapterId = searchParams.get("chapterId");
     const highlightQuote = searchParams.get("quote");
     const returnToQuiz = searchParams.get("returnToQuiz");
-    const [book, setBook] = useState<Book | null>(null);
+    const [source, setSource] = useState<Source | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
     const [chapterContents, setChapterContents] = useState<Record<string, string>>({});
     const [contentLoading, setContentLoading] = useState(false);
     const [contentReady, setContentReady] = useState(false);
-    const [contentBookId, setContentBookId] = useState<string | null>(null);
+    const [contentSourceId, setContentSourceId] = useState<string | null>(null);
     const [contentChapterIdsKey, setContentChapterIdsKey] = useState<string | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [expandedChapters, setExpandedChapters] = useState<string[]>([]);
@@ -187,34 +187,34 @@ export default function BookReaderPage({
     const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
     const [isSearchLoading, setIsSearchLoading] = useState(false);
     const searchInputRef = useRef<HTMLInputElement | null>(null);
-    const chapterStorageKey = useMemo(() => `book-last-chapter:${id}`, [id]);
-    const tocStorageKey = useMemo(() => `book-toc-expanded:${id}`, [id]);
+    const chapterStorageKey = useMemo(() => `source-last-chapter:${id}`, [id]);
+    const tocStorageKey = useMemo(() => `source-toc-expanded:${id}`, [id]);
     const chapterIdsKey = useMemo(
-        () => (book?.chapters ?? []).map((chapter) => chapter.id).join("|"),
-        [book]
+        () => (source?.chapters ?? []).map((chapter) => chapter.id).join("|"),
+        [source]
     );
     const orderedChapters = useMemo(
         () =>
-            (book?.chapters ?? [])
+            (source?.chapters ?? [])
                 .slice()
                 .sort((chapterA, chapterB) => chapterA.order - chapterB.order),
-        [book]
+        [source]
     );
     const chapterLookup = useMemo(
         () =>
             new Map(
-                (book?.chapters ?? []).map((chapter) => [chapter.id, chapter])
+                (source?.chapters ?? []).map((chapter) => [chapter.id, chapter])
             ),
-        [book]
+        [source]
     );
 
-    const fetchBook = useCallback(async () => {
+    const fetchSource = useCallback(async () => {
         try {
             setIsTocReady(false);
-            const response = await fetch(`/api/books/${id}`);
-            if (!response.ok) throw new Error("Failed to fetch book");
+            const response = await fetch(`/api/sources/${id}`);
+            if (!response.ok) throw new Error("Failed to fetch source");
             const data = await response.json();
-            setBook(data);
+            setSource(data);
 
             // Build chapter hierarchy
             const chaptersWithChildren = buildChapterTree(data.chapters || []);
@@ -264,8 +264,8 @@ export default function BookReaderPage({
             }
             setIsTocReady(true);
         } catch (error) {
-            console.error("Error fetching book:", error);
-            toast.error("Не удалось загрузить книгу");
+            console.error("Error fetching source:", error);
+            toast.error("Не удалось загрузить источник");
         } finally {
             setLoading(false);
         }
@@ -285,7 +285,7 @@ export default function BookReaderPage({
 
             try {
                 const response = await fetch(
-                    `/api/books/${id}/chapters/${chapterId}`
+                    `/api/sources/${id}/chapters/${chapterId}`
                 );
                 if (!response.ok) throw new Error("Failed to fetch chapter");
                 const data = await response.json();
@@ -413,8 +413,8 @@ export default function BookReaderPage({
     );
 
     useEffect(() => {
-        fetchBook();
-    }, [fetchBook]);
+        fetchSource();
+    }, [fetchSource]);
 
     useEffect(() => {
         initialScrollDoneRef.current = false;
@@ -434,8 +434,8 @@ export default function BookReaderPage({
     }, [contentReady]);
 
     useEffect(() => {
-        if (!book) return;
-        if (contentBookId === book.id && contentChapterIdsKey === chapterIdsKey) {
+        if (!source) return;
+        if (contentSourceId === source.id && contentChapterIdsKey === chapterIdsKey) {
             return;
         }
 
@@ -471,7 +471,7 @@ export default function BookReaderPage({
             setChapterContents(contentMap);
             setContentLoading(false);
             setContentReady(true);
-            setContentBookId(book.id);
+            setContentSourceId(source.id);
             setContentChapterIdsKey(chapterIdsKey);
             if (failedCount > 0) {
                 toast.error("Не удалось загрузить некоторые главы");
@@ -484,9 +484,9 @@ export default function BookReaderPage({
             isCancelled = true;
         };
     }, [
-        book,
+        source,
         chapterIdsKey,
-        contentBookId,
+        contentSourceId,
         contentChapterIdsKey,
         fetchAllChapterContents,
         orderedChapters,
@@ -495,7 +495,7 @@ export default function BookReaderPage({
     ]);
 
     useEffect(() => {
-        if (!contentReady || contentBookId !== book?.id || initialScrollDoneRef.current) {
+        if (!contentReady || contentSourceId !== source?.id || initialScrollDoneRef.current) {
             return;
         }
         const initialChapterId = requestedChapterId || selectedChapter?.id;
@@ -509,8 +509,8 @@ export default function BookReaderPage({
         }, 500);
         return () => clearTimeout(timeout);
     }, [
-        book?.id,
-        contentBookId,
+        source?.id,
+        contentSourceId,
         contentReady,
         requestedChapterId,
         scrollToChapter,
@@ -563,7 +563,7 @@ export default function BookReaderPage({
     }, [expandedChapters, isTocReady, tocStorageKey]);
 
     useEffect(() => {
-        if (!contentReady || contentBookId !== book?.id) return;
+        if (!contentReady || contentSourceId !== source?.id) return;
         if (!scrollViewportRef.current) return;
         if (orderedChapters.length === 0) return;
 
@@ -608,7 +608,7 @@ export default function BookReaderPage({
         return () => {
             observer.disconnect();
         };
-    }, [book?.id, chapterLookup, contentBookId, contentReady, orderedChapters]);
+    }, [source?.id, chapterLookup, contentSourceId, contentReady, orderedChapters]);
 
     useEffect(() => {
         if (!selectedChapter) {
@@ -1118,7 +1118,7 @@ export default function BookReaderPage({
     };
 
     const submitQuiz = async (formData: FormData) => {
-        if (!book || !selectedChapter) {
+        if (!source || !selectedChapter) {
             toast.error("Выберите главу для создания теста");
             return;
         }
@@ -1127,7 +1127,7 @@ export default function BookReaderPage({
         setQuizValidationErrors([]);
 
         try {
-            formData.append("bookId", book.id);
+            formData.append("sourceId", source.id);
             formData.append("chapterId", selectedChapter.id);
 
             const response = await fetch("/api/quizzes", {
@@ -1172,8 +1172,8 @@ export default function BookReaderPage({
             setIsQuizDialogOpen(false);
             setQuizValidationErrors([]);
             setQuizJsonText("");
-            // Refresh the book to update quiz status
-            fetchBook();
+            // Refresh the source to update quiz status
+            fetchSource();
         } catch (error) {
             console.error("Error uploading quiz:", error);
             toast.error("Не удалось загрузить тест");
@@ -1227,11 +1227,11 @@ export default function BookReaderPage({
         );
     }
 
-    if (!book) {
+    if (!source) {
         return (
             <div className="flex min-h-dvh flex-col items-center justify-center bg-background text-foreground">
                 <BookOpen className="mb-4 h-16 w-16 text-muted-foreground" />
-                <h1 className="mb-2 text-2xl font-bold">Книга не найдена</h1>
+                <h1 className="mb-2 text-2xl font-bold">Источник не найден</h1>
                 <Link href="/library">
                     <Button variant="outline">Вернуться в библиотеку</Button>
                 </Link>
@@ -1240,8 +1240,8 @@ export default function BookReaderPage({
     }
 
     // Build chapter tree
-    const chapterTree = buildChapterTree(book.chapters);
-    const expandableChapterIds = getExpandableChapterIds(book.chapters);
+    const chapterTree = buildChapterTree(source.chapters);
+    const expandableChapterIds = getExpandableChapterIds(source.chapters);
     const expandedSet = new Set(expandedChapters);
     const isAllExpanded =
         expandableChapterIds.length > 0 &&
@@ -1266,7 +1266,7 @@ export default function BookReaderPage({
                         </Button>
                     </Link>
                     <span className="line-clamp-1 min-w-0 flex-1 px-2 text-sm font-medium text-foreground">
-                        {book.title}
+                        {source.title}
                     </span>
                     <Button
                         variant="ghost"
@@ -1396,9 +1396,9 @@ export default function BookReaderPage({
                                                 Привязка
                                             </div>
                                             <div>
-                                                Книга:{" "}
+                                                Источник:{" "}
                                                 <span className="text-foreground">
-                                                    {book?.title || "-"}
+                                                    {source?.title || "-"}
                                                 </span>
                                             </div>
                                             <div>

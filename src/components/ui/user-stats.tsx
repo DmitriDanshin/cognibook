@@ -4,8 +4,8 @@ import { BookOpen, GraduationCap, Target, Flame, Trophy, TrendingUp } from "luci
 
 interface UserStatsProps {
     stats: {
-        totalBooks: number;
-        completedBooks: number;
+        totalSources: number;
+        completedSources: number;
         totalQuizzes: number;
         totalAttempts: number;
         passedAttempts: number;
@@ -18,14 +18,14 @@ interface UserStatsProps {
 export function UserStats({ stats }: UserStatsProps) {
     const statItems = [
         {
-            label: "Книг загружено",
-            value: stats.totalBooks,
+            label: "Источников",
+            value: stats.totalSources,
             icon: BookOpen,
             color: "text-blue-500",
         },
         {
-            label: "Книг прочитано",
-            value: stats.completedBooks,
+            label: "Прочитано",
+            value: stats.completedSources,
             icon: Trophy,
             color: "text-amber-500",
         },

@@ -11,8 +11,8 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "CogniBook - Умное чтение и обучение",
   description:
-    "Веб-приложение для чтения специализированной литературы и проверки знаний с детальной обратной связью",
-  keywords: ["электронные книги", "epub", "тесты", "обучение", "quiz"],
+    "Веб-приложение для чтения и проверки знаний с детальной обратной связью",
+  keywords: ["epub", "markdown", "тесты", "обучение", "quiz"],
 };
 
 export default function RootLayout({

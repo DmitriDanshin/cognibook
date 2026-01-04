@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
             include: {
                 chapter: {
                     include: {
-                        book: true,
+                        source: true,
                     },
                 },
                 _count: {
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     try {
         const formData = await request.formData();
         const file = formData.get("file") as File;
-        const bookId = formData.get("bookId")?.toString() || null;
+        const sourceId = formData.get("sourceId")?.toString() || null;
         const chapterId = formData.get("chapterId")?.toString() || null;
 
         if (!file) {
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
         if (chapterId) {
             const chapter = await prisma.chapter.findUnique({
                 where: { id: chapterId },
-                include: { book: true },
+                include: { source: true },
             });
 
             if (!chapter) {
@@ -114,17 +114,17 @@ export async function POST(request: NextRequest) {
                 );
             }
 
-            // Check that the chapter belongs to a book owned by the user
-            if (chapter.book.userId !== authResult.user.userId) {
+            // Check that the chapter belongs to a source owned by the user
+            if (chapter.source.userId !== authResult.user.userId) {
                 return NextResponse.json(
                     { error: "Chapter not found" },
                     { status: 404 }
                 );
             }
 
-            if (bookId && chapter.bookId !== bookId) {
+            if (sourceId && chapter.sourceId !== sourceId) {
                 return NextResponse.json(
-                    { error: "Chapter does not belong to selected book" },
+                    { error: "Chapter does not belong to selected source" },
                     { status: 400 }
                 );
             }
@@ -141,9 +141,9 @@ export async function POST(request: NextRequest) {
             }
 
             resolvedChapterId = chapter.id;
-        } else if (bookId) {
+        } else if (sourceId) {
             return NextResponse.json(
-                { error: "Chapter is required when book is selected" },
+                { error: "Chapter is required when source is selected" },
                 { status: 400 }
             );
         }

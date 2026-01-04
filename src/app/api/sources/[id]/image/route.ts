@@ -32,17 +32,17 @@ export async function GET(
             return NextResponse.json({ error: "Image path required" }, { status: 400 });
         }
 
-        // Get book
-        const book = await prisma.book.findUnique({
+        // Get source
+        const source = await prisma.source.findUnique({
             where: { id, userId: authResult.user.userId },
         });
 
-        if (!book) {
-            return NextResponse.json({ error: "Book not found" }, { status: 404 });
+        if (!source) {
+            return NextResponse.json({ error: "Source not found" }, { status: 404 });
         }
 
         // Read EPUB file
-        const epubPath = path.join(process.cwd(), book.filePath);
+        const epubPath = path.join(process.cwd(), source.filePath);
         const epubBuffer = await readFile(epubPath);
 
         // Open EPUB as ZIP

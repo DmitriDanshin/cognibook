@@ -1,5 +1,5 @@
 import { BaseParser } from "./base-parser";
-import type { BookMetadata, ParsedMarkdown, SpineItem, TocItem } from "./types";
+import type { SourceMetadata, ParsedMarkdown, SpineItem, TocItem } from "./types";
 
 type MarkdownHeading = {
     level: number;
@@ -62,7 +62,7 @@ export class MarkdownParser extends BaseParser<ParsedMarkdown> {
         return this.renderMarkdownToHtml(section);
     }
 
-    private extractFrontMatter(content: string): { metadata: Partial<BookMetadata>; body: string } {
+    private extractFrontMatter(content: string): { metadata: Partial<SourceMetadata>; body: string } {
         const lines = content.split(/\r?\n/);
         if (lines.length === 0) {
             return { metadata: {}, body: content };
@@ -94,7 +94,7 @@ export class MarkdownParser extends BaseParser<ParsedMarkdown> {
         }
 
         const matterLines = lines.slice(startIndex + 1, endIndex);
-        const metadata: Partial<BookMetadata> = {};
+        const metadata: Partial<SourceMetadata> = {};
 
         for (const line of matterLines) {
             const match = /^([^:]+):\s*(.*)$/.exec(line);
@@ -132,9 +132,9 @@ export class MarkdownParser extends BaseParser<ParsedMarkdown> {
     }
 
     private resolveMetadata(
-        metadata: Partial<BookMetadata>,
+        metadata: Partial<SourceMetadata>,
         headings: MarkdownHeading[]
-    ): BookMetadata {
+    ): SourceMetadata {
         const titleFromHeading =
             headings.find((heading) => heading.level === 1)?.title ||
             headings[0]?.title ||

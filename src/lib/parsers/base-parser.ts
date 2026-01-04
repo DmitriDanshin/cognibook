@@ -1,8 +1,8 @@
-import type { ParsedBook } from "./types";
+import type { ParsedSource } from "./types";
 
-export abstract class BaseParser<TParsed extends ParsedBook = ParsedBook> {
+export abstract class BaseParser<TParsed extends ParsedSource = ParsedSource> {
     protected constructor(protected buffer: Buffer) {}
 
     abstract parse(): Promise<TParsed>;
-    abstract getChapterContent(href: string, bookId?: string): Promise<string>;
+    abstract getChapterContent(href: string, sourceId?: string): Promise<string>;
 }

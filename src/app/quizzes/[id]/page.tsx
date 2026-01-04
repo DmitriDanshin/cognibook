@@ -66,8 +66,8 @@ interface Quiz {
     chapter?: {
         id: string;
         title: string;
-        bookId: string;
-        book: {
+        sourceId: string;
+        source: {
             id: string;
             title: string;
         };
@@ -361,7 +361,7 @@ export default function QuizPage({
     const isCurrentChecked = !!currentResult;
     const quoteLink =
         currentQuestion?.quote && quiz?.chapter
-            ? `/library/${quiz.chapter.bookId}?chapterId=${quiz.chapter.id}&quote=${encodeURIComponent(currentQuestion.quote)}&returnToQuiz=${id}`
+            ? `/library/${quiz.chapter.sourceId}?chapterId=${quiz.chapter.id}&quote=${encodeURIComponent(currentQuestion.quote)}&returnToQuiz=${id}`
             : null;
 
     const handleSingleAnswer = (optionId: string) => {
@@ -586,7 +586,7 @@ export default function QuizPage({
                                 Пройти заново
                             </Button>
                             {quiz.chapter && (
-                                <Link href={`/library/${quiz.chapter.bookId}?chapterId=${quiz.chapter.id}`} className="w-full">
+                                <Link href={`/library/${quiz.chapter.sourceId}?chapterId=${quiz.chapter.id}`} className="w-full">
                                     <Button
                                         variant="outline"
                                         className="w-full gap-2"

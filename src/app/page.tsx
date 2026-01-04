@@ -12,8 +12,8 @@ import { UserStats } from "@/components/ui/user-stats";
 
 interface UserStatsData {
     stats: {
-        totalBooks: number;
-        completedBooks: number;
+        totalSources: number;
+        completedSources: number;
         totalQuizzes: number;
         totalAttempts: number;
         passedAttempts: number;
@@ -226,7 +226,7 @@ export default function HomePage() {
                                         <div className="flex-1">
                                             <h3 className="font-semibold text-foreground">Библиотека</h3>
                                             <p className="text-sm text-muted-foreground">
-                                                Читать книги и отслеживать прогресс
+                                                Читать источники и отслеживать прогресс
                                             </p>
                                         </div>
                                         <ArrowRight className="h-5 w-5 text-muted-foreground transition-transform group-hover:translate-x-1" />
@@ -261,7 +261,7 @@ export default function HomePage() {
                             CogniBook
                         </h1>
                         <p className="mb-8 max-w-md text-lg text-muted-foreground">
-                            Платформа для чтения книг и прохождения интерактивных тестов
+                            Платформа для чтения и прохождения интерактивных тестов
                         </p>
                         <div className="flex flex-col gap-3 sm:flex-row">
                             <Link href="/login">

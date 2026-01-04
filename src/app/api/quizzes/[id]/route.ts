@@ -26,7 +26,7 @@ export async function GET(
                 },
                 chapter: {
                     include: {
-                        book: true,
+                        source: true,
                     },
                 },
                 attempts: {

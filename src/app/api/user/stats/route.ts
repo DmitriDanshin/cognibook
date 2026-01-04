@@ -31,13 +31,13 @@ export async function GET(request: NextRequest) {
         },
     });
 
-    // Get total books count
-    const booksCount = await prisma.book.count({
+    // Get total sources count
+    const sourcesCount = await prisma.source.count({
         where: { userId },
     });
 
-    // Get books with 100% progress
-    const completedBooks = await prisma.readingProgress.count({
+    // Get sources with 100% progress
+    const completedSources = await prisma.readingProgress.count({
         where: {
             userId,
             progress: 100,
@@ -142,8 +142,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
         stats: {
-            totalBooks: booksCount,
-            completedBooks,
+            totalSources: sourcesCount,
+            completedSources,
             totalQuizzes: quizzesCount,
             totalAttempts,
             passedAttempts,

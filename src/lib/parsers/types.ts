@@ -1,4 +1,4 @@
-export interface BookMetadata {
+export interface SourceMetadata {
     title: string;
     author: string | null;
     language: string | null;
@@ -25,7 +25,7 @@ export interface ChapterContent {
     html: string;
 }
 
-export interface ParsedBook<TMetadata extends BookMetadata = BookMetadata> {
+export interface ParsedSource<TMetadata extends SourceMetadata = SourceMetadata> {
     metadata: TMetadata;
     toc: TocItem[];
     spine: SpineItem[];
@@ -33,14 +33,14 @@ export interface ParsedBook<TMetadata extends BookMetadata = BookMetadata> {
     coverMimeType: string | null;
 }
 
-export interface EpubMetadata extends BookMetadata {
+export interface EpubMetadata extends SourceMetadata {
     coverHref: string | null;
 }
 
 export interface EpubChapterContent extends ChapterContent {}
 
-export interface ParsedEpub extends ParsedBook<EpubMetadata> {}
+export interface ParsedEpub extends ParsedSource<EpubMetadata> {}
 
-export type MarkdownMetadata = BookMetadata;
+export type MarkdownMetadata = SourceMetadata;
 
-export interface ParsedMarkdown extends ParsedBook<MarkdownMetadata> {}
+export interface ParsedMarkdown extends ParsedSource<MarkdownMetadata> {}

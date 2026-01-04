@@ -8,14 +8,14 @@ import { parseMarkdownFile } from "@/lib/parsers/markdown-parser";
 import crypto from "crypto";
 
 async function createChapters(
-    bookId: string,
+    sourceId: string,
     tocItems: TocItem[],
     parentId: string | null
 ): Promise<void> {
     for (const item of tocItems) {
         const chapter = await prisma.chapter.create({
             data: {
-                bookId,
+                sourceId,
                 title: item.title,
                 href: item.href,
                 order: item.order,
@@ -24,7 +24,7 @@ async function createChapters(
         });
 
         if (item.children && item.children.length > 0) {
-            await createChapters(bookId, item.children, chapter.id);
+            await createChapters(sourceId, item.children, chapter.id);
         }
     }
 }
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        const books = await prisma.book.findMany({
+        const sources = await prisma.source.findMany({
             where: { userId: authResult.user.userId },
             include: {
                 readingProgress: {
@@ -49,17 +49,17 @@ export async function GET(request: NextRequest) {
         });
 
         // Sort by last access time (readingProgress.updatedAt), fallback to createdAt
-        books.sort((a, b) => {
+        sources.sort((a, b) => {
             const aTime = a.readingProgress[0]?.updatedAt ?? a.createdAt;
             const bTime = b.readingProgress[0]?.updatedAt ?? b.createdAt;
             return new Date(bTime).getTime() - new Date(aTime).getTime();
         });
 
-        return NextResponse.json(books);
+        return NextResponse.json(sources);
     } catch (error) {
-        console.error("Error fetching books:", error);
+        console.error("Error fetching sources:", error);
         return NextResponse.json(
-            { error: "Failed to fetch books" },
+            { error: "Failed to fetch sources" },
             { status: 500 }
         );
     }
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Create uploads directory if it doesn't exist
-        const uploadsDir = path.join(process.cwd(), "uploads", "books");
+        const uploadsDir = path.join(process.cwd(), "uploads", "sources");
         await mkdir(uploadsDir, { recursive: true });
 
         // Generate unique filename
@@ -104,18 +104,18 @@ export async function POST(request: NextRequest) {
         const buffer = Buffer.from(bytes);
         const fileHash = crypto.createHash("sha256").update(buffer).digest("hex");
 
-        const existingByHash = await prisma.book.findFirst({
+        const existingByHash = await prisma.source.findFirst({
             where: { fileHash, userId: authResult.user.userId },
         });
 
         if (existingByHash) {
             return NextResponse.json(
-                { error: "Book already uploaded", book: existingByHash },
+                { error: "Source already uploaded", source: existingByHash },
                 { status: 409 }
             );
         }
 
-        const hashCandidates = await prisma.book.findMany({
+        const hashCandidates = await prisma.source.findMany({
             where: { fileHash: null, fileSize: file.size, userId: authResult.user.userId },
             select: { id: true, filePath: true, title: true, author: true },
         });
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
                     .update(candidateBuffer)
                     .digest("hex");
 
-                await prisma.book.update({
+                await prisma.source.update({
                     where: { id: candidate.id },
                     data: { fileHash: candidateHash },
                 });
@@ -137,8 +137,8 @@ export async function POST(request: NextRequest) {
                 if (candidateHash === fileHash) {
                     return NextResponse.json(
                         {
-                            error: "Book already uploaded",
-                            book: {
+                            error: "Source already uploaded",
+                            source: {
                                 id: candidate.id,
                                 title: candidate.title,
                                 author: candidate.author,
@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
 
         await writeFile(filePath, buffer);
 
-        // Parse EPUB
+        // Parse file
         let title = path.basename(file.name, originalExt);
         let author: string | null = null;
         let coverPath: string | null = null;
@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
                     const coverFileName = `${uniqueId}-cover.${coverExt}`;
                     const coverFilePath = path.join(uploadsDir, coverFileName);
                     await writeFile(coverFilePath, parsed.coverBuffer);
-                    coverPath = `/uploads/books/${coverFileName}`;
+                    coverPath = `/uploads/sources/${coverFileName}`;
                 }
             } else {
                 const parsed = await parseMarkdownFile(buffer);
@@ -182,17 +182,17 @@ export async function POST(request: NextRequest) {
                 tocItems = parsed.toc;
             }
         } catch (parseError) {
-            console.error("Error parsing book:", parseError);
+            console.error("Error parsing source:", parseError);
             // Continue with basic metadata from filename
         }
 
-        // Create book record in database
-        const book = await prisma.book.create({
+        // Create source record in database
+        const source = await prisma.source.create({
             data: {
                 title,
                 author,
                 coverPath,
-                filePath: `/uploads/books/${fileName}`,
+                filePath: `/uploads/sources/${fileName}`,
                 fileHash,
                 fileSize: file.size,
                 userId: authResult.user.userId,
@@ -201,12 +201,12 @@ export async function POST(request: NextRequest) {
 
         // Create chapter records from TOC
         if (tocItems.length > 0) {
-            await createChapters(book.id, tocItems, null);
+            await createChapters(source.id, tocItems, null);
         }
 
-        // Fetch book with chapters for response
-        const bookWithChapters = await prisma.book.findUnique({
-            where: { id: book.id },
+        // Fetch source with chapters for response
+        const sourceWithChapters = await prisma.source.findUnique({
+            where: { id: source.id },
             include: {
                 chapters: {
                     orderBy: { order: "asc" },
@@ -214,11 +214,11 @@ export async function POST(request: NextRequest) {
             },
         });
 
-        return NextResponse.json(bookWithChapters, { status: 201 });
+        return NextResponse.json(sourceWithChapters, { status: 201 });
     } catch (error) {
-        console.error("Error uploading book:", error);
+        console.error("Error uploading source:", error);
         return NextResponse.json(
-            { error: "Failed to upload book" },
+            { error: "Failed to upload source" },
             { status: 500 }
         );
     }

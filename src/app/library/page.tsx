@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-interface Book {
+interface Source {
     id: string;
     title: string;
     author: string | null;
@@ -44,28 +44,28 @@ interface Book {
 }
 
 export default function LibraryPage() {
-    const [books, setBooks] = useState<Book[]>([]);
+    const [sources, setSources] = useState<Source[]>([]);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-    const fetchBooks = useCallback(async () => {
+    const fetchSources = useCallback(async () => {
         try {
-            const response = await fetch("/api/books");
-            if (!response.ok) throw new Error("Failed to fetch books");
+            const response = await fetch("/api/sources");
+            if (!response.ok) throw new Error("Failed to fetch sources");
             const data = await response.json();
-            setBooks(data);
+            setSources(data);
         } catch (error) {
-            console.error("Error fetching books:", error);
-            toast.error("Не удалось загрузить книги");
+            console.error("Error fetching sources:", error);
+            toast.error("Не удалось загрузить источники");
         } finally {
             setLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        fetchBooks();
-    }, [fetchBooks]);
+        fetchSources();
+    }, [fetchSources]);
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -83,7 +83,7 @@ export default function LibraryPage() {
         formData.append("file", file);
 
         try {
-            const response = await fetch("/api/books", {
+            const response = await fetch("/api/sources", {
                 method: "POST",
                 body: formData,
             });
@@ -92,40 +92,40 @@ export default function LibraryPage() {
 
             if (!response.ok) {
                 if (response.status === 409) {
-                    toast.info("Книга уже загружена");
+                    toast.info("Источник уже загружен");
                     setIsDialogOpen(false);
-                    fetchBooks();
+                    fetchSources();
                     return;
                 }
                 throw new Error(data?.error || "Failed to upload");
             }
 
-            toast.success("Книга успешно загружена");
+            toast.success("Источник успешно загружен");
             setIsDialogOpen(false);
-            fetchBooks();
+            fetchSources();
         } catch (error) {
-            console.error("Error uploading book:", error);
-            toast.error("Не удалось загрузить книгу");
+            console.error("Error uploading source:", error);
+            toast.error("Не удалось загрузить источник");
         } finally {
             setUploading(false);
         }
     };
 
     const handleDelete = async (id: string, title: string) => {
-        if (!confirm(`Удалить книгу "${title}"?`)) return;
+        if (!confirm(`Удалить источник "${title}"?`)) return;
 
         try {
-            const response = await fetch(`/api/books/${id}`, {
+            const response = await fetch(`/api/sources/${id}`, {
                 method: "DELETE",
             });
 
             if (!response.ok) throw new Error("Failed to delete");
 
-            toast.success("Книга удалена");
-            fetchBooks();
+            toast.success("Источник удалён");
+            fetchSources();
         } catch (error) {
-            console.error("Error deleting book:", error);
-            toast.error("Не удалось удалить книгу");
+            console.error("Error deleting source:", error);
+            toast.error("Не удалось удалить источник");
         }
     };
 
@@ -173,13 +173,13 @@ export default function LibraryPage() {
                             <DialogTrigger asChild>
                                 <Button className="w-full gap-2 sm:w-auto">
                                     <Upload className="h-4 w-4" />
-                                    Загрузить книгу
+                                    Загрузить
                                 </Button>
                             </DialogTrigger>
                             <DialogContent className="border-border bg-background">
                                 <DialogHeader>
                                     <DialogTitle className="text-foreground">
-                                        Загрузить книгу
+                                        Загрузить источник
                                     </DialogTitle>
                                     <DialogDescription className="text-muted-foreground">
                                         Выберите файл в формате .epub или .md для загрузки в библиотеку
@@ -221,7 +221,7 @@ export default function LibraryPage() {
                     <div className="flex min-h-[400px] items-center justify-center">
                         <div className="h-8 w-8 animate-spin rounded-full border-2 border-foreground/40 border-t-transparent" />
                     </div>
-                ) : books.length === 0 ? (
+                ) : sources.length === 0 ? (
                     <div className="flex min-h-[400px] flex-col items-center justify-center text-center">
                         <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-muted/60">
                             <BookOpen className="h-12 w-12 text-muted-foreground" />
@@ -230,34 +230,34 @@ export default function LibraryPage() {
                             Библиотека пуста
                         </h2>
                         <p className="mb-6 text-muted-foreground">
-                            Загрузите свою первую книгу в формате EPUB или Markdown
+                            Загрузите свой первый источник в формате EPUB или Markdown
                         </p>
                         <Button
                             onClick={() => setIsDialogOpen(true)}
                             className="gap-2"
                         >
                             <Upload className="h-4 w-4" />
-                            Загрузить книгу
+                            Загрузить
                         </Button>
                     </div>
                 ) : (
                     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                        {books.map((book) => (
+                        {sources.map((source) => (
                             <Card
-                                key={book.id}
+                                key={source.id}
                                 className="group relative min-w-0 overflow-hidden border-border bg-card transition-all hover:border-foreground/30 hover:shadow-lg hover:shadow-black/5"
                             >
                                 <CardHeader className="pb-2">
-                                    {/* Book Cover */}
+                                    {/* Source Cover */}
                                     <Link
-                                        href={`/library/${book.id}`}
+                                        href={`/library/${source.id}`}
                                         className="mb-4 flex aspect-[3/4] items-center justify-center overflow-hidden rounded-lg bg-muted/60 transition-transform group-hover:scale-[1.02]"
-                                        aria-label={`Открыть книгу ${book.title}`}
+                                        aria-label={`Открыть ${source.title}`}
                                     >
-                                        {book.coverPath ? (
+                                        {source.coverPath ? (
                                             <img
-                                                src={`/api${book.coverPath}`}
-                                                alt={book.title}
+                                                src={`/api${source.coverPath}`}
+                                                alt={source.title}
                                                 className="h-full w-full object-cover"
                                             />
                                         ) : (
@@ -266,7 +266,7 @@ export default function LibraryPage() {
                                     </Link>
                                     <CardTitle
                                         className="min-h-[3rem] text-lg leading-snug text-foreground break-words"
-                                        title={book.title}
+                                        title={source.title}
                                         style={{
                                             display: "-webkit-box",
                                             WebkitBoxOrient: "vertical",
@@ -274,36 +274,36 @@ export default function LibraryPage() {
                                             overflow: "hidden",
                                         }}
                                     >
-                                        {book.title}
+                                        {source.title}
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="pb-2">
                                     <p className="mb-3 text-sm text-muted-foreground">
-                                        {book.author || "Автор неизвестен"}
+                                        {source.author || "Автор неизвестен"}
                                     </p>
                                     <div className="flex flex-wrap gap-2">
                                         <Badge variant="secondary" className="gap-1">
                                             <HardDrive className="h-3 w-3" />
-                                            {formatFileSize(book.fileSize)}
+                                            {formatFileSize(source.fileSize)}
                                         </Badge>
                                         <Badge variant="secondary" className="gap-1">
                                             <Clock className="h-3 w-3" />
-                                            {formatDate(book.createdAt)}
+                                            {formatDate(source.createdAt)}
                                         </Badge>
                                     </div>
-                                    {book.readingProgress[0]?.progress > 0 && (
+                                    {source.readingProgress[0]?.progress > 0 && (
                                         <div className="mt-3">
                                             <div className="mb-1 flex justify-between text-xs text-muted-foreground">
                                                 <span>Прогресс</span>
                                                 <span>
-                                                    {Math.round(book.readingProgress[0].progress)}%
+                                                    {Math.round(source.readingProgress[0].progress)}%
                                                 </span>
                                             </div>
                                             <div className="h-1.5 overflow-hidden rounded-full bg-border">
                                                 <div
                                                     className="h-full rounded-full bg-foreground"
                                                     style={{
-                                                        width: `${book.readingProgress[0].progress}%`,
+                                                        width: `${source.readingProgress[0].progress}%`,
                                                     }}
                                                 />
                                             </div>
@@ -311,7 +311,7 @@ export default function LibraryPage() {
                                     )}
                                 </CardContent>
                                 <CardFooter className="gap-2">
-                                    <Link href={`/library/${book.id}`} className="flex-1">
+                                    <Link href={`/library/${source.id}`} className="flex-1">
                                         <Button className="w-full">
                                             <BookOpen className="mr-2 h-4 w-4" />
                                             Читать
@@ -321,7 +321,7 @@ export default function LibraryPage() {
                                         variant="outline"
                                         size="icon"
                                         className="text-muted-foreground hover:text-foreground"
-                                        onClick={() => handleDelete(book.id, book.title)}
+                                        onClick={() => handleDelete(source.id, source.title)}
                                     >
                                         <Trash2 className="h-4 w-4" />
                                     </Button>
