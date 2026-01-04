@@ -32,6 +32,14 @@ import {
     BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Option {
     id: string;
@@ -120,6 +128,7 @@ export default function QuizPage({
     const answersScrollRef = useRef<HTMLDivElement | null>(null);
     const [isQuoteExpanded, setIsQuoteExpanded] = useState(false);
     const isSubmittingRef = useRef(false);
+    const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
 
     const fetchQuiz = useCallback(async () => {
         try {
@@ -628,12 +637,25 @@ export default function QuizPage({
                                 </div>
                             </div>
                         </div>
-                        <Badge
-                            variant="secondary"
-                            className="text-xs sm:text-sm"
-                        >
-                            {checkedQuestions.size} / {quiz.questions.length} проверено
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                            {(answers.size > 0 || checkedQuestions.size > 0) && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                    onClick={() => setIsResetDialogOpen(true)}
+                                    title="Сбросить прогресс"
+                                >
+                                    <RotateCcw className="h-4 w-4" />
+                                </Button>
+                            )}
+                            <Badge
+                                variant="secondary"
+                                className="text-xs sm:text-sm"
+                            >
+                                {checkedQuestions.size} / {quiz.questions.length} проверено
+                            </Badge>
+                        </div>
                     </div>
                 </div>
             </header>
@@ -926,6 +948,37 @@ export default function QuizPage({
                     </div>
                 </footer>
             )}
+
+            {/* Reset Progress Dialog */}
+            <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+                <DialogContent showCloseButton={false}>
+                    <DialogHeader>
+                        <DialogTitle>Сбросить прогресс?</DialogTitle>
+                        <DialogDescription>
+                            Все ваши ответы будут удалены, и тест начнётся сначала. Это действие нельзя отменить.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsResetDialogOpen(false)}
+                        >
+                            Отмена
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={() => {
+                                handleRestartQuiz();
+                                setIsResetDialogOpen(false);
+                                toast.success("Прогресс сброшен");
+                            }}
+                        >
+                            <RotateCcw className="mr-2 h-4 w-4" />
+                            Сбросить
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
