@@ -259,30 +259,115 @@ export default function BookReaderPage({
         }
     }, [id, requestedChapterId, chapterStorageKey, tocStorageKey]);
 
+    // Fetch a single chapter content with caching
+    const fetchChapterContent = useCallback(
+        async (chapterId: string): Promise<string> => {
+            // Check sessionStorage cache first
+            const cacheKey = `chapter-content:${id}:${chapterId}`;
+            try {
+                const cached = sessionStorage.getItem(cacheKey);
+                if (cached) return cached;
+            } catch {
+                // sessionStorage may be unavailable
+            }
+
+            try {
+                const response = await fetch(
+                    `/api/books/${id}/chapters/${chapterId}`
+                );
+                if (!response.ok) throw new Error("Failed to fetch chapter");
+                const data = await response.json();
+                const content = data.content || "";
+
+                // Cache in sessionStorage
+                try {
+                    sessionStorage.setItem(cacheKey, content);
+                } catch {
+                    // Storage full or unavailable
+                }
+
+                return content;
+            } catch (error) {
+                console.error("Error fetching chapter:", error);
+                return "<p>Не удалось загрузить содержимое главы.</p>";
+            }
+        },
+        [id]
+    );
+
+    // Load chapters around the current one (lazy loading)
+    const loadChaptersAround = useCallback(
+        async (centerIndex: number, chapters: Chapter[]) => {
+            // Load current + 2 before + 3 after
+            const startIdx = Math.max(0, centerIndex - 2);
+            const endIdx = Math.min(chapters.length - 1, centerIndex + 3);
+
+            // Use functional update to check current state
+            setChapterContents((prevContents) => {
+                const toLoad: Chapter[] = [];
+                for (let i = startIdx; i <= endIdx; i++) {
+                    const chapter = chapters[i];
+                    if (chapter && !prevContents[chapter.id]) {
+                        toLoad.push(chapter);
+                    }
+                }
+
+                if (toLoad.length === 0) return prevContents;
+
+                // Load asynchronously and update state
+                Promise.all(
+                    toLoad.map(async (chapter) => {
+                        const content = await fetchChapterContent(chapter.id);
+                        return [chapter.id, content] as const;
+                    })
+                ).then((entries) => {
+                    setChapterContents((prev) => ({
+                        ...prev,
+                        ...Object.fromEntries(entries),
+                    }));
+                });
+
+                return prevContents;
+            });
+        },
+        [fetchChapterContent]
+    );
+
     const fetchAllChapterContents = useCallback(
         async (chapters: Chapter[]) => {
             if (chapters.length === 0) {
                 return { contentMap: {}, failedCount: 0 };
             }
 
+            // For small books (< 10 chapters), load all at once
+            if (chapters.length < 10) {
+                const failed: string[] = [];
+                const entries = await Promise.all(
+                    chapters.map(async (chapter) => {
+                        const content = await fetchChapterContent(chapter.id);
+                        if (content.includes("Не удалось загрузить")) {
+                            failed.push(chapter.id);
+                        }
+                        return [chapter.id, content] as const;
+                    })
+                );
+
+                return {
+                    contentMap: Object.fromEntries(entries),
+                    failedCount: failed.length,
+                };
+            }
+
+            // For larger books, load first 5 chapters initially
+            const initialChapters = chapters.slice(0, 5);
             const failed: string[] = [];
             const entries = await Promise.all(
-                chapters.map(async (chapter) => {
-                    try {
-                        const response = await fetch(
-                            `/api/books/${id}/chapters/${chapter.id}`
-                        );
-                        if (!response.ok) throw new Error("Failed to fetch chapter");
-                        const data = await response.json();
-                        return [chapter.id, data.content || ""] as const;
-                    } catch (error) {
-                        console.error("Error fetching chapter:", error);
+                initialChapters.map(async (chapter) => {
+                    const content = await fetchChapterContent(chapter.id);
+                    if (content.includes("Не удалось загрузить")) {
                         failed.push(chapter.id);
-                        return [
-                            chapter.id,
-                            "<p>Не удалось загрузить содержимое главы.</p>",
-                        ] as const;
                     }
+                    return [chapter.id, content] as const;
                 })
             );
 
@@ -291,7 +376,7 @@ export default function BookReaderPage({
                 failedCount: failed.length,
             };
         },
-        [id]
+        [fetchChapterContent]
     );
 
     const scrollToChapter = useCallback(
@@ -348,8 +433,27 @@ export default function BookReaderPage({
         setChapterContents({});
 
         const loadContents = async () => {
+            // For large books, find the starting position
+            let initialIndex = 0;
+            if (orderedChapters.length >= 10) {
+                const targetId = requestedChapterId || selectedChapter?.id;
+                if (targetId) {
+                    const idx = orderedChapters.findIndex((c) => c.id === targetId);
+                    if (idx !== -1) initialIndex = idx;
+                }
+            }
+
+            // Determine which chapters to load initially
+            let chaptersToLoad = orderedChapters;
+            if (orderedChapters.length >= 10) {
+                // Load 2 before + current + 3 after = 6 chapters max
+                const startIdx = Math.max(0, initialIndex - 2);
+                const endIdx = Math.min(orderedChapters.length, initialIndex + 4);
+                chaptersToLoad = orderedChapters.slice(startIdx, endIdx);
+            }
+
             const { contentMap, failedCount } = await fetchAllChapterContents(
-                orderedChapters
+                chaptersToLoad
             );
             if (isCancelled) return;
             setChapterContents(contentMap);
@@ -374,6 +478,8 @@ export default function BookReaderPage({
         contentChapterIdsKey,
         fetchAllChapterContents,
         orderedChapters,
+        requestedChapterId,
+        selectedChapter?.id,
     ]);
 
     useEffect(() => {
@@ -401,7 +507,17 @@ export default function BookReaderPage({
         } catch {
             // ignore storage errors
         }
-    }, [selectedChapter, chapterStorageKey]);
+
+        // Lazy load chapters around the selected one
+        if (orderedChapters.length >= 10) {
+            const currentIndex = orderedChapters.findIndex(
+                (c) => c.id === selectedChapter.id
+            );
+            if (currentIndex !== -1) {
+                loadChaptersAround(currentIndex, orderedChapters);
+            }
+        }
+    }, [selectedChapter, chapterStorageKey, orderedChapters, loadChaptersAround]);
 
     useEffect(() => {
         if (!selectedChapter) return;
