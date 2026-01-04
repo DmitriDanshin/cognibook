@@ -179,6 +179,7 @@ export default function BookReaderPage({
     const scrollViewportRef = useRef<HTMLDivElement | null>(null);
     const initialScrollDoneRef = useRef(false);
     const selectedChapterIdRef = useRef<string | null>(null);
+    const isManualScrollingRef = useRef(false);
     const [isTocReady, setIsTocReady] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -499,9 +500,14 @@ export default function BookReaderPage({
         }
         const initialChapterId = requestedChapterId || selectedChapter?.id;
         if (initialChapterId) {
+            selectedChapterIdRef.current = initialChapterId;
             scrollToChapter(initialChapterId, "auto");
         }
-        initialScrollDoneRef.current = true;
+        // Delay enabling observer to let scroll settle
+        const timeout = setTimeout(() => {
+            initialScrollDoneRef.current = true;
+        }, 500);
+        return () => clearTimeout(timeout);
     }, [
         book?.id,
         contentBookId,
@@ -571,6 +577,7 @@ export default function BookReaderPage({
         const observer = new IntersectionObserver(
             (entries) => {
                 if (!initialScrollDoneRef.current) return;
+                if (isManualScrollingRef.current) return;
                 const visibleEntries = entries
                     .filter((entry) => entry.isIntersecting)
                     .sort(
@@ -1003,14 +1010,48 @@ export default function BookReaderPage({
         return () => clearTimeout(timeout);
     }, [searchQuery, isSearchOpen, performSearch, clearSearchHighlights]);
 
-    const handleSelectChapter = (chapter: Chapter) => {
+    const handleSelectChapter = useCallback(async (chapter: Chapter) => {
         selectedChapterIdRef.current = chapter.id;
         setSelectedChapter(chapter);
+
+        // Block observer during manual scroll to prevent jumping
+        isManualScrollingRef.current = true;
+
+        // First, ensure all chapters before this one are loaded
+        // to prevent layout shift during scroll
+        const chapterIndex = orderedChapters.findIndex((c) => c.id === chapter.id);
+        if (chapterIndex > 0) {
+            const chaptersToLoad = orderedChapters
+                .slice(0, chapterIndex)
+                .filter((c) => chapterContents[c.id] === undefined);
+
+            if (chaptersToLoad.length > 0) {
+                const entries = await Promise.all(
+                    chaptersToLoad.map(async (c) => {
+                        const content = await fetchChapterContent(c.id);
+                        return [c.id, content] as const;
+                    })
+                );
+                setChapterContents((prev) => ({
+                    ...prev,
+                    ...Object.fromEntries(entries),
+                }));
+                // Wait for DOM update
+                await new Promise((resolve) => setTimeout(resolve, 50));
+            }
+        }
+
         scrollToChapter(chapter.id);
+
+        // Re-enable observer after scroll animation completes
+        setTimeout(() => {
+            isManualScrollingRef.current = false;
+        }, 800);
+
         if (typeof window !== "undefined" && window.innerWidth < 1024) {
             setSidebarOpen(false);
         }
-    };
+    }, [orderedChapters, chapterContents, fetchChapterContent, scrollToChapter]);
 
     const renderQuizStatusIcon = (status: Chapter["quizStatus"]) => {
         switch (status) {
