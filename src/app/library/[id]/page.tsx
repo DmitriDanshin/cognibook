@@ -184,6 +184,7 @@ export default function BookReaderPage({
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState<HTMLElement[]>([]);
     const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
+    const [isSearchLoading, setIsSearchLoading] = useState(false);
     const searchInputRef = useRef<HTMLInputElement | null>(null);
     const chapterStorageKey = useMemo(() => `book-last-chapter:${id}`, [id]);
     const tocStorageKey = useMemo(() => `book-toc-expanded:${id}`, [id]);
@@ -818,12 +819,38 @@ export default function BookReaderPage({
         });
     }, []);
 
-    const performSearch = useCallback((query: string) => {
+    const performSearch = useCallback(async (query: string) => {
         clearSearchHighlights();
         setSearchResults([]);
         setCurrentSearchIndex(0);
 
-        if (!query.trim() || !contentRef.current) return;
+        const trimmedQuery = query.trim();
+        if (!trimmedQuery || trimmedQuery.length < 3 || !contentRef.current) return;
+
+        // First, load all chapters if not loaded
+        const missingChapters = orderedChapters.filter(
+            (chapter) => chapterContents[chapter.id] === undefined
+        );
+
+        if (missingChapters.length > 0) {
+            setIsSearchLoading(true);
+            try {
+                const entries = await Promise.all(
+                    missingChapters.map(async (chapter) => {
+                        const content = await fetchChapterContent(chapter.id);
+                        return [chapter.id, content] as const;
+                    })
+                );
+                setChapterContents((prev) => ({
+                    ...prev,
+                    ...Object.fromEntries(entries),
+                }));
+                // Wait for DOM to update
+                await new Promise((resolve) => setTimeout(resolve, 100));
+            } finally {
+                setIsSearchLoading(false);
+            }
+        }
 
         const container = contentRef.current;
         const escapedQuery = escapeRegExp(query.trim());
@@ -888,7 +915,7 @@ export default function BookReaderPage({
             highlights[0].scrollIntoView({ behavior: "smooth", block: "center" });
             highlights[0].classList.add("ring-2", "ring-yellow-500");
         }
-    }, [clearSearchHighlights]);
+    }, [clearSearchHighlights, orderedChapters, chapterContents, fetchChapterContent]);
 
     const navigateSearch = useCallback((direction: "next" | "prev") => {
         if (searchResults.length === 0) return;
@@ -955,14 +982,19 @@ export default function BookReaderPage({
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [isSearchOpen]);
 
-    // Auto-search with debounce
+    // Auto-search with debounce (requires minimum 3 characters)
     useEffect(() => {
         if (!isSearchOpen) return;
+        if (searchQuery.trim().length < 3) {
+            clearSearchHighlights();
+            setSearchResults([]);
+            return;
+        }
         const timeout = setTimeout(() => {
             performSearch(searchQuery);
-        }, 300);
+        }, 500);
         return () => clearTimeout(timeout);
-    }, [searchQuery, isSearchOpen, performSearch]);
+    }, [searchQuery, isSearchOpen, performSearch, clearSearchHighlights]);
 
     const handleSelectChapter = (chapter: Chapter) => {
         selectedChapterIdRef.current = chapter.id;
@@ -1455,28 +1487,41 @@ export default function BookReaderPage({
                 {/* Search Bar */}
                 {isSearchOpen && (
                     <div className="flex items-center gap-2 border-b border-border bg-background/95 px-4 py-2 backdrop-blur sm:px-6">
-                        <Search className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                        {isSearchLoading ? (
+                            <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-muted-foreground" />
+                        ) : (
+                            <Search className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                        )}
                         <Input
                             ref={searchInputRef}
                             type="text"
-                            placeholder="Поиск по тексту..."
+                            placeholder="Введите минимум 3 символа..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onKeyDown={handleSearchKeyDown}
                             className="h-8 flex-1"
+                            disabled={isSearchLoading}
                         />
-                        {searchResults.length > 0 && (
+                        {isSearchLoading ? (
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                Загрузка...
+                            </span>
+                        ) : searchResults.length > 0 ? (
                             <span className="text-xs text-muted-foreground whitespace-nowrap">
                                 {currentSearchIndex + 1} / {searchResults.length}
                             </span>
-                        )}
+                        ) : searchQuery.trim().length >= 3 ? (
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                Не найдено
+                            </span>
+                        ) : null}
                         <div className="flex items-center gap-1">
                             <Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8"
                                 onClick={() => navigateSearch("prev")}
-                                disabled={searchResults.length === 0}
+                                disabled={searchResults.length === 0 || isSearchLoading}
                                 title="Предыдущий (Shift+Enter)"
                             >
                                 <ChevronUp className="h-4 w-4" />
@@ -1486,7 +1531,7 @@ export default function BookReaderPage({
                                 size="icon"
                                 className="h-8 w-8"
                                 onClick={() => navigateSearch("next")}
-                                disabled={searchResults.length === 0}
+                                disabled={searchResults.length === 0 || isSearchLoading}
                                 title="Следующий (Enter)"
                             >
                                 <ChevronDown className="h-4 w-4" />
