@@ -603,31 +603,42 @@ export default function BookReaderPage({
         };
     }, [book?.id, chapterLookup, contentBookId, contentReady, orderedChapters]);
 
-    const fetchLinkedQuiz = useCallback(async (chapterId: string) => {
-        setLinkedQuizLoading(true);
-        try {
-            const response = await fetch(`/api/quizzes?chapterId=${chapterId}`);
-            if (!response.ok) throw new Error("Failed to fetch linked quiz");
-            const data = await response.json();
-            setLinkedQuiz(data);
-        } catch (error) {
-            console.error("Error fetching linked quiz:", error);
-            setLinkedQuiz(null);
-        } finally {
-            setLinkedQuizLoading(false);
-        }
-    }, []);
-
     useEffect(() => {
         if (!selectedChapter) {
             setLinkedQuiz(null);
+            setLinkedQuizLoading(false);
             return;
         }
-        const timeout = setTimeout(() => {
-            fetchLinkedQuiz(selectedChapter.id);
+
+        // Clear immediately and start loading
+        setLinkedQuiz(null);
+        setLinkedQuizLoading(true);
+
+        let cancelled = false;
+        const timeout = setTimeout(async () => {
+            try {
+                const response = await fetch(`/api/quizzes?chapterId=${selectedChapter.id}`);
+                if (cancelled) return;
+                if (!response.ok) throw new Error("Failed to fetch linked quiz");
+                const data = await response.json();
+                if (cancelled) return;
+                setLinkedQuiz(data);
+            } catch (error) {
+                if (cancelled) return;
+                console.error("Error fetching linked quiz:", error);
+                setLinkedQuiz(null);
+            } finally {
+                if (!cancelled) {
+                    setLinkedQuizLoading(false);
+                }
+            }
         }, 250);
-        return () => clearTimeout(timeout);
-    }, [fetchLinkedQuiz, selectedChapter?.id]);
+
+        return () => {
+            cancelled = true;
+            clearTimeout(timeout);
+        };
+    }, [selectedChapter?.id]);
 
     const requestedChapterContent = requestedChapterId
         ? chapterContents[requestedChapterId]
