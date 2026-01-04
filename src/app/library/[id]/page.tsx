@@ -643,75 +643,71 @@ export default function BookReaderPage({
         );
         if (!chapterNode) return;
         const timeout = setTimeout(() => {
-            const clearHighlights = () => {
-                const marks = chapterNode.querySelectorAll(
-                    'mark[data-quote-highlight="true"]'
-                );
-                marks.forEach((mark) => {
-                    const parent = mark.parentNode;
-                    if (!parent) return;
-                    while (mark.firstChild) {
-                        parent.insertBefore(mark.firstChild, mark);
-                    }
-                    parent.removeChild(mark);
-                });
-            };
-
-            const getNodeAtTextIndex = (
-                root: HTMLElement,
-                index: number
-            ): { node: Text; offset: number } | null => {
-                const walker = document.createTreeWalker(
-                    root,
-                    NodeFilter.SHOW_TEXT
-                );
-                let currentIndex = 0;
-                let node = walker.nextNode() as Text | null;
-                while (node) {
-                    const length = node.textContent?.length ?? 0;
-                    if (index <= currentIndex + length) {
-                        return { node, offset: Math.max(0, index - currentIndex) };
-                    }
-                    currentIndex += length;
-                    node = walker.nextNode() as Text | null;
-                }
-                return null;
-            };
-
-            clearHighlights();
+            // Clear previous highlights
+            chapterNode.querySelectorAll('[data-quote-highlight="true"]').forEach((el) => {
+                el.removeAttribute("data-quote-highlight");
+                (el as HTMLElement).style.backgroundColor = "";
+            });
 
             const trimmedQuote = highlightQuote.trim();
             if (!trimmedQuote) return;
 
-            const textContent = chapterNode.textContent || "";
-            const escapedQuote = escapeRegExp(trimmedQuote);
-            const quotePattern = escapedQuote.replace(/\s+/g, "\\s+");
-            const quoteRegex = new RegExp(quotePattern, "u");
-            const match = quoteRegex.exec(textContent);
-            if (!match) return;
+            // Normalize quote for comparison (lowercase, collapse whitespace)
+            const normalizeText = (text: string) =>
+                text.toLowerCase().replace(/\s+/g, " ").trim();
+            const normalizedQuote = normalizeText(trimmedQuote);
 
-            const startIndex = match.index;
-            const endIndex = startIndex + match[0].length;
-            const startNode = getNodeAtTextIndex(chapterNode, startIndex);
-            const endNode = getNodeAtTextIndex(chapterNode, endIndex);
-            if (!startNode || !endNode) return;
+            // Extract key words from quote (3+ chars) for fuzzy matching
+            const quoteWords = normalizedQuote
+                .split(/\s+/)
+                .filter((word) => word.length >= 3);
 
-            const range = document.createRange();
-            range.setStart(startNode.node, startNode.offset);
-            range.setEnd(endNode.node, endNode.offset);
+            if (quoteWords.length === 0) return;
 
-            const mark = document.createElement("mark");
-            mark.dataset.quoteHighlight = "true";
+            // Find all paragraph-like elements
+            const paragraphs = chapterNode.querySelectorAll("p, li, blockquote, td, th");
+            let bestMatchElement: Element | null = null;
+            let bestMatchScore = 0;
 
-            try {
-                range.surroundContents(mark);
-            } catch {
-                const fragment = range.extractContents();
-                mark.appendChild(fragment);
-                range.insertNode(mark);
+            paragraphs.forEach((para) => {
+                const paraText = normalizeText(para.textContent || "");
+                if (!paraText) return;
+
+                // Check for exact substring match first
+                if (paraText.includes(normalizedQuote)) {
+                    const score = 1000 + normalizedQuote.length;
+                    if (score > bestMatchScore) {
+                        bestMatchElement = para;
+                        bestMatchScore = score;
+                    }
+                    return;
+                }
+
+                // Count matching words for fuzzy match
+                let matchedWords = 0;
+                for (const word of quoteWords) {
+                    if (paraText.includes(word)) {
+                        matchedWords++;
+                    }
+                }
+
+                // Require at least 50% word match
+                const matchRatio = matchedWords / quoteWords.length;
+                if (matchRatio >= 0.5) {
+                    const score = matchRatio * 100;
+                    if (score > bestMatchScore) {
+                        bestMatchElement = para;
+                        bestMatchScore = score;
+                    }
+                }
+            });
+
+            if (bestMatchElement) {
+                const element = bestMatchElement as HTMLElement;
+                element.dataset.quoteHighlight = "true";
+                element.style.backgroundColor = "rgba(250, 204, 21, 0.3)";
+                element.scrollIntoView({ behavior: "smooth", block: "center" });
             }
-
-            mark.scrollIntoView({ behavior: "smooth", block: "center" });
         }, 100);
         return () => clearTimeout(timeout);
     }, [highlightQuote, requestedChapterContent, requestedChapterId]);
