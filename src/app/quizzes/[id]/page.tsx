@@ -736,6 +736,7 @@ export default function QuizPage({
                                 </div>
                             )}
                         </CardHeader>
+                        <div className="mx-4 sm:mx-6 py-2 sm:py-3"><div className="border-t border-border" /></div>
                         <ScrollArea className="flex-1 min-h-0">
                             <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6 pt-0">
                                 <div className="space-y-0">
@@ -743,7 +744,7 @@ export default function QuizPage({
                                         <RadioGroup
                                             value={currentAnswer[0] || ""}
                                             onValueChange={handleSingleAnswer}
-                                            className="!gap-1 sm:!gap-1.5"
+                                            className="!gap-2 sm:!gap-3"
                                             disabled={isCurrentChecked}
                                         >
                                             {currentQuestion.options.map((option) => (
@@ -798,7 +799,7 @@ export default function QuizPage({
                                             ))}
                                         </RadioGroup>
                                     ) : (
-                                        <div className="grid !gap-1 sm:!gap-1.5">
+                                        <div className="grid !gap-2 sm:!gap-3">
                                             {currentQuestion.options.map((option) => (
                                                 <div key={option.id} className="space-y-2">
                                                     <label
