@@ -38,7 +38,6 @@ export async function GET(request: NextRequest) {
     try {
         const books = await prisma.book.findMany({
             where: { userId: authResult.user.userId },
-            orderBy: { createdAt: "desc" },
             include: {
                 readingProgress: {
                     where: { userId: authResult.user.userId },
@@ -47,6 +46,13 @@ export async function GET(request: NextRequest) {
                     select: { chapters: true },
                 },
             },
+        });
+
+        // Sort by last access time (readingProgress.updatedAt), fallback to createdAt
+        books.sort((a, b) => {
+            const aTime = a.readingProgress[0]?.updatedAt ?? a.createdAt;
+            const bTime = b.readingProgress[0]?.updatedAt ?? b.createdAt;
+            return new Date(bTime).getTime() - new Date(aTime).getTime();
         });
 
         return NextResponse.json(books);
