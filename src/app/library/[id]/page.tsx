@@ -39,6 +39,9 @@ import {
     Loader2,
     Trophy,
     Undo2,
+    Search,
+    ChevronUp,
+    ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -69,6 +72,7 @@ type ChapterContentProps = {
     orderedChapters: Chapter[];
     chapterContents: Record<string, string>;
     contentRef: RefObject<HTMLDivElement | null>;
+    isSearchOpen: boolean;
 };
 
 const ChapterContent = memo(function ChapterContent({
@@ -76,9 +80,10 @@ const ChapterContent = memo(function ChapterContent({
     orderedChapters,
     chapterContents,
     contentRef,
+    isSearchOpen,
 }: ChapterContentProps) {
     return (
-        <ScrollArea className="h-[calc(100dvh-3.5rem)] sm:h-[calc(100dvh-4rem)]">
+        <ScrollArea className={isSearchOpen ? "h-[calc(100dvh-6.5rem)] sm:h-[calc(100dvh-7rem)]" : "h-[calc(100dvh-3.5rem)] sm:h-[calc(100dvh-4rem)]"}>
             {contentLoading ? (
                 <div className="flex h-full items-center justify-center py-20">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -175,6 +180,11 @@ export default function BookReaderPage({
     const initialScrollDoneRef = useRef(false);
     const selectedChapterIdRef = useRef<string | null>(null);
     const [isTocReady, setIsTocReady] = useState(false);
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchResults, setSearchResults] = useState<HTMLElement[]>([]);
+    const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
+    const searchInputRef = useRef<HTMLInputElement | null>(null);
     const chapterStorageKey = useMemo(() => `book-last-chapter:${id}`, [id]);
     const tocStorageKey = useMemo(() => `book-toc-expanded:${id}`, [id]);
     const chapterIdsKey = useMemo(
@@ -792,6 +802,168 @@ export default function BookReaderPage({
         toast.success("Файл скачан");
     };
 
+    const clearSearchHighlights = useCallback(() => {
+        if (!contentRef.current) return;
+        const marks = contentRef.current.querySelectorAll(
+            'mark[data-search-highlight="true"]'
+        );
+        marks.forEach((mark) => {
+            const parent = mark.parentNode;
+            if (!parent) return;
+            while (mark.firstChild) {
+                parent.insertBefore(mark.firstChild, mark);
+            }
+            parent.removeChild(mark);
+            (parent as Element).normalize?.();
+        });
+    }, []);
+
+    const performSearch = useCallback((query: string) => {
+        clearSearchHighlights();
+        setSearchResults([]);
+        setCurrentSearchIndex(0);
+
+        if (!query.trim() || !contentRef.current) return;
+
+        const container = contentRef.current;
+        const escapedQuery = escapeRegExp(query.trim());
+        const searchPattern = escapedQuery.replace(/\s+/g, "\\s+");
+        const searchRegex = new RegExp(searchPattern, "giu");
+
+        const textContent = container.textContent || "";
+        const matches: { start: number; end: number }[] = [];
+        let match: RegExpExecArray | null;
+
+        while ((match = searchRegex.exec(textContent)) !== null) {
+            matches.push({ start: match.index, end: match.index + match[0].length });
+        }
+
+        if (matches.length === 0) return;
+
+        const getNodeAtTextIndex = (
+            root: HTMLElement,
+            index: number
+        ): { node: Text; offset: number } | null => {
+            const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+            let currentIndex = 0;
+            let node = walker.nextNode() as Text | null;
+            while (node) {
+                const length = node.textContent?.length ?? 0;
+                if (index < currentIndex + length) {
+                    return { node, offset: Math.max(0, index - currentIndex) };
+                }
+                currentIndex += length;
+                node = walker.nextNode() as Text | null;
+            }
+            return null;
+        };
+
+        const highlights: HTMLElement[] = [];
+
+        // Process matches in reverse order to avoid offset issues
+        for (let i = matches.length - 1; i >= 0; i--) {
+            const { start, end } = matches[i];
+            const startNode = getNodeAtTextIndex(container, start);
+            const endNode = getNodeAtTextIndex(container, end);
+            if (!startNode || !endNode) continue;
+
+            try {
+                const range = document.createRange();
+                range.setStart(startNode.node, startNode.offset);
+                range.setEnd(endNode.node, endNode.offset);
+
+                const mark = document.createElement("mark");
+                mark.dataset.searchHighlight = "true";
+                mark.className = "bg-yellow-300/50 dark:bg-yellow-500/30";
+
+                range.surroundContents(mark);
+                highlights.unshift(mark);
+            } catch {
+                // Skip if range crosses element boundaries
+            }
+        }
+
+        setSearchResults(highlights);
+        if (highlights.length > 0) {
+            highlights[0].scrollIntoView({ behavior: "smooth", block: "center" });
+            highlights[0].classList.add("ring-2", "ring-yellow-500");
+        }
+    }, [clearSearchHighlights]);
+
+    const navigateSearch = useCallback((direction: "next" | "prev") => {
+        if (searchResults.length === 0) return;
+
+        // Remove highlight from current
+        searchResults[currentSearchIndex]?.classList.remove("ring-2", "ring-yellow-500");
+
+        let newIndex: number;
+        if (direction === "next") {
+            newIndex = (currentSearchIndex + 1) % searchResults.length;
+        } else {
+            newIndex = (currentSearchIndex - 1 + searchResults.length) % searchResults.length;
+        }
+
+        setCurrentSearchIndex(newIndex);
+        searchResults[newIndex]?.scrollIntoView({ behavior: "smooth", block: "center" });
+        searchResults[newIndex]?.classList.add("ring-2", "ring-yellow-500");
+    }, [currentSearchIndex, searchResults]);
+
+    const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            if (e.shiftKey) {
+                navigateSearch("prev");
+            } else if (searchResults.length > 0) {
+                navigateSearch("next");
+            } else {
+                performSearch(searchQuery);
+            }
+        } else if (e.key === "Escape") {
+            setIsSearchOpen(false);
+            clearSearchHighlights();
+            setSearchQuery("");
+            setSearchResults([]);
+        }
+    }, [clearSearchHighlights, navigateSearch, performSearch, searchQuery, searchResults.length]);
+
+    const toggleSearch = useCallback(() => {
+        if (isSearchOpen) {
+            setIsSearchOpen(false);
+            clearSearchHighlights();
+            setSearchQuery("");
+            setSearchResults([]);
+        } else {
+            setIsSearchOpen(true);
+            setTimeout(() => searchInputRef.current?.focus(), 100);
+        }
+    }, [clearSearchHighlights, isSearchOpen]);
+
+    // Keyboard shortcut for search (Ctrl/Cmd + F)
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+                e.preventDefault();
+                if (!isSearchOpen) {
+                    setIsSearchOpen(true);
+                    setTimeout(() => searchInputRef.current?.focus(), 100);
+                } else {
+                    searchInputRef.current?.focus();
+                }
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [isSearchOpen]);
+
+    // Auto-search with debounce
+    useEffect(() => {
+        if (!isSearchOpen) return;
+        const timeout = setTimeout(() => {
+            performSearch(searchQuery);
+        }, 300);
+        return () => clearTimeout(timeout);
+    }, [searchQuery, isSearchOpen, performSearch]);
+
     const handleSelectChapter = (chapter: Chapter) => {
         selectedChapterIdRef.current = chapter.id;
         setSelectedChapter(chapter);
@@ -1252,6 +1424,16 @@ export default function BookReaderPage({
                         <Button
                             variant="outline"
                             size="sm"
+                            className={`gap-2 text-muted-foreground hover:text-foreground ${isSearchOpen ? "bg-accent" : ""}`}
+                            onClick={toggleSearch}
+                            title="Поиск (Ctrl+F)"
+                        >
+                            <Search className="h-4 w-4" />
+                            <span className="hidden sm:inline">Поиск</span>
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
                             className="gap-2 text-muted-foreground hover:text-foreground"
                             onClick={handleCopyText}
                         >
@@ -1270,12 +1452,65 @@ export default function BookReaderPage({
                     </div>
                 </header>
 
+                {/* Search Bar */}
+                {isSearchOpen && (
+                    <div className="flex items-center gap-2 border-b border-border bg-background/95 px-4 py-2 backdrop-blur sm:px-6">
+                        <Search className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                        <Input
+                            ref={searchInputRef}
+                            type="text"
+                            placeholder="Поиск по тексту..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onKeyDown={handleSearchKeyDown}
+                            className="h-8 flex-1"
+                        />
+                        {searchResults.length > 0 && (
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                {currentSearchIndex + 1} / {searchResults.length}
+                            </span>
+                        )}
+                        <div className="flex items-center gap-1">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => navigateSearch("prev")}
+                                disabled={searchResults.length === 0}
+                                title="Предыдущий (Shift+Enter)"
+                            >
+                                <ChevronUp className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => navigateSearch("next")}
+                                disabled={searchResults.length === 0}
+                                title="Следующий (Enter)"
+                            >
+                                <ChevronDown className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={toggleSearch}
+                                title="Закрыть (Esc)"
+                            >
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Reading Area */}
                 <ChapterContent
                     contentLoading={contentLoading}
                     orderedChapters={orderedChapters}
                     chapterContents={chapterContents}
                     contentRef={contentRef}
+                    isSearchOpen={isSearchOpen}
                 />
             </main>
         </div>
