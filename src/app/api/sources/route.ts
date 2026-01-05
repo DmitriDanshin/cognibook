@@ -332,13 +332,19 @@ export async function POST(request: NextRequest) {
         }
 
         const hashCandidates = await prisma.source.findMany({
-            where: { fileHash: null, fileSize: file.size, userId: authResult.user.userId },
+            where: {
+                fileHash: null,
+                fileSize: file.size,
+                userId: authResult.user.userId,
+                filePath: { not: null }
+            },
             select: { id: true, filePath: true, title: true, author: true },
         });
 
         for (const candidate of hashCandidates) {
             try {
-                const candidatePath = path.join(process.cwd(), candidate.filePath);
+                // filePath is guaranteed to be non-null due to the query filter
+                const candidatePath = path.join(process.cwd(), candidate.filePath!);
                 const candidateBuffer = await readFile(candidatePath);
                 const candidateHash = crypto
                     .createHash("sha256")

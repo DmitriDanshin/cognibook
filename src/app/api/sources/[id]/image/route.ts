@@ -41,6 +41,11 @@ export async function GET(
             return NextResponse.json({ error: "Source not found" }, { status: 404 });
         }
 
+        // Check if source has a file
+        if (!source.filePath) {
+            return NextResponse.json({ error: "This source type does not support images" }, { status: 400 });
+        }
+
         // Read EPUB file
         const epubPath = path.join(process.cwd(), source.filePath);
         const epubBuffer = await readFile(epubPath);
