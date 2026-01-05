@@ -2,7 +2,10 @@
 set -e
 
 # Run Prisma db push to sync schema
-npx prisma db push --schema=./prisma/schema.prisma --skip-generate 2>/dev/null || true
+echo "Running Prisma DB migration..."
+prisma db push --schema=./prisma/schema.prisma --skip-generate || {
+    echo "Warning: Prisma migration failed, but continuing..."
+}
 
 # Execute the main command
 exec "$@"

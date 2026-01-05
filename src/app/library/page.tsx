@@ -29,6 +29,7 @@ import {
     Clock,
     HardDrive,
     Youtube,
+    Globe,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -49,8 +50,11 @@ export default function LibraryPage() {
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [sourceType, setSourceType] = useState<"file" | "youtube">("file");
+    const [sourceType, setSourceType] = useState<"file" | "youtube" | "web">(
+        "file"
+    );
     const [youtubeUrl, setYoutubeUrl] = useState("");
+    const [webUrl, setWebUrl] = useState("");
 
     const fetchSources = useCallback(async () => {
         try {
@@ -157,6 +161,49 @@ export default function LibraryPage() {
         }
     };
 
+    const handleWebSubmit = async () => {
+        if (!webUrl.trim()) {
+            toast.error("Введите URL страницы");
+            return;
+        }
+
+        setUploading(true);
+        const formData = new FormData();
+        formData.append("webUrl", webUrl);
+
+        try {
+            const response = await fetch("/api/sources", {
+                method: "POST",
+                body: formData,
+            });
+
+            const data = await response.json().catch(() => null);
+
+            if (!response.ok) {
+                if (response.status === 409) {
+                    toast.info("Страница уже добавлена");
+                    setIsDialogOpen(false);
+                    setWebUrl("");
+                    fetchSources();
+                    return;
+                }
+                throw new Error(data?.error || "Failed to add web page");
+            }
+
+            toast.success("Страница успешно добавлена");
+            setIsDialogOpen(false);
+            setWebUrl("");
+            fetchSources();
+        } catch (error) {
+            console.error("Error adding web source:", error);
+            const errorMessage =
+                error instanceof Error ? error.message : "Не удалось добавить страницу";
+            toast.error(errorMessage);
+        } finally {
+            setUploading(false);
+        }
+    };
+
     const handleDelete = async (id: string, title: string) => {
         if (!confirm(`Удалить источник "${title}"?`)) return;
 
@@ -224,11 +271,11 @@ export default function LibraryPage() {
                             </DialogTrigger>
                             <DialogContent className="border-border bg-background">
                                 <DialogHeader>
-                                    <DialogTitle className="text-foreground">
+                                    <DialogTitle className="text-foreground">   
                                         Добавить источник
                                     </DialogTitle>
                                     <DialogDescription className="text-muted-foreground">
-                                        Загрузите файл или добавьте YouTube видео
+                                        Загрузите файл, добавьте YouTube видео или страницу сайта
                                     </DialogDescription>
                                 </DialogHeader>
                                 <div className="mt-4">
@@ -251,6 +298,15 @@ export default function LibraryPage() {
                                         >
                                             <Youtube className="h-4 w-4" />
                                             YouTube
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant={sourceType === "web" ? "default" : "outline"}
+                                            className="flex-1 gap-2"
+                                            onClick={() => setSourceType("web")}
+                                        >
+                                            <Globe className="h-4 w-4" />
+                                            Сайт
                                         </Button>
                                     </div>
 
@@ -308,6 +364,35 @@ export default function LibraryPage() {
                                             </Button>
                                         </div>
                                     )}
+
+                                    {/* Web URL */}
+                                    {sourceType === "web" && (
+                                        <div className="space-y-4">
+                                            <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/40 p-8">
+                                                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-foreground/10 text-foreground">
+                                                    <Globe className="h-8 w-8" />
+                                                </div>
+                                                <span className="mb-4 text-lg font-medium text-foreground">
+                                                    Добавить страницу сайта
+                                                </span>
+                                                <Input
+                                                    type="url"
+                                                    placeholder="https://example.com/article"
+                                                    value={webUrl}
+                                                    onChange={(e) => setWebUrl(e.target.value)}
+                                                    disabled={uploading}
+                                                    className="w-full"
+                                                />
+                                            </div>
+                                            <Button
+                                                onClick={handleWebSubmit}
+                                                disabled={uploading || !webUrl.trim()}
+                                                className="w-full"
+                                            >
+                                                {uploading ? "Добавление..." : "Добавить страницу"}
+                                            </Button>
+                                        </div>
+                                    )}
                                 </div>
                             </DialogContent>
                         </Dialog>
@@ -330,7 +415,7 @@ export default function LibraryPage() {
                             Библиотека пуста
                         </h2>
                         <p className="mb-6 text-muted-foreground">
-                            Загрузите свой первый источник в формате EPUB или Markdown
+                            Загрузите свой первый источник, добавьте YouTube видео или страницу сайта
                         </p>
                         <Button
                             onClick={() => setIsDialogOpen(true)}

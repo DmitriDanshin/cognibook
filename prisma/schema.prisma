@@ -39,7 +39,7 @@ model Source {
   filePath        String?  @unique
   fileHash        String?
   fileSize        Int?
-  sourceType      String   @default("file") // "file" or "youtube"
+  sourceType      String   @default("file") // "file", "youtube", or "web"
   youtubeVideoId  String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

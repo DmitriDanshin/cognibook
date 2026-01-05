@@ -38,6 +38,9 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 # This will download youtube-transcript-api and yt-dlp on build
 RUN uv pip install --system youtube-transcript-api yt-dlp || true
 
+# Install Prisma CLI globally for migrations
+RUN npm install -g prisma
+
 COPY --from=builder /app/public ./public
 
 # Set the correct permission for prerender cache

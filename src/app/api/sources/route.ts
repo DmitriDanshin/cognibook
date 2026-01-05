@@ -6,11 +6,138 @@ import path from "path";
 import { parseEpubFile, TocItem } from "@/lib/parsers/epub-parser";
 import { parseMarkdownFile } from "@/lib/parsers/markdown-parser";
 import { parseYouTubeTranscript } from "@/lib/parsers/youtube-parser";
+import { parseWebPageToMarkdown, type WebImage } from "@/lib/parsers/web-parser";
 import { exec } from "child_process";
 import { promisify } from "util";
 import crypto from "crypto";
 
 const execAsync = promisify(exec);
+
+const IMAGE_CONTENT_TYPES: Record<string, string> = {
+    "image/jpeg": "jpg",
+    "image/jpg": "jpg",
+    "image/png": "png",
+    "image/gif": "gif",
+    "image/webp": "webp",
+};
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_TOTAL_IMAGE_BYTES = 20 * 1024 * 1024;
+const MAX_IMAGE_COUNT = 20;
+
+const resolveImageExtension = (
+    contentType: string | null,
+    imageUrl: string
+): string | null => {
+    if (contentType) {
+        const cleaned = contentType.split(";")[0]?.trim().toLowerCase();
+        if (cleaned && IMAGE_CONTENT_TYPES[cleaned]) {
+            return IMAGE_CONTENT_TYPES[cleaned];
+        }
+    }
+
+    try {
+        const url = new URL(imageUrl);
+        const ext = path.extname(url.pathname).toLowerCase();
+        if (ext && ext.length <= 5) {
+            const trimmed = ext.replace(".", "");
+            if (["jpg", "jpeg", "png", "gif", "webp"].includes(trimmed)) {
+                return trimmed === "jpeg" ? "jpg" : trimmed;
+            }
+        }
+    } catch {
+        return null;
+    }
+
+    return null;
+};
+
+const rewriteMarkdownImages = (
+    markdown: string,
+    replacements: Map<string, string>
+): string => {
+    if (replacements.size === 0) return markdown;
+
+    return markdown.replace(
+        /!\[([^\]]*)\]\(([^)]+)\)/g,
+        (match, alt, urlPart) => {
+            const rawUrl = urlPart.trim();
+            const replacement = replacements.get(rawUrl);
+            if (!replacement) return match;
+            return `![${alt}](${replacement})`;
+        }
+    );
+};
+
+const fetchImageBuffer = async (
+    imageUrl: string
+): Promise<{ buffer: Buffer; ext: string } | null> => {
+    try {
+        const response = await fetch(imageUrl, {
+            redirect: "follow",
+            cache: "no-store",
+            headers: {
+                "User-Agent": "Cognibook/1.0 (+https://cognibook)",
+                Accept: "image/*",
+            },
+        });
+
+        if (!response.ok) return null;
+
+        const contentType = response.headers.get("content-type");
+        const ext = resolveImageExtension(contentType, imageUrl);
+        if (!ext) return null;
+
+        const contentLength = response.headers.get("content-length");
+        if (contentLength && Number(contentLength) > MAX_IMAGE_BYTES) {
+            return null;
+        }
+
+        const buffer = Buffer.from(await response.arrayBuffer());
+        if (buffer.length > MAX_IMAGE_BYTES) {
+            return null;
+        }
+
+        return { buffer, ext };
+    } catch (error) {
+        console.warn("Failed to download image:", error);
+        return null;
+    }
+};
+
+const downloadWebImages = async (
+    images: WebImage[],
+    uploadsDir: string,
+    prefix: string
+): Promise<Map<string, string>> => {
+    const replacements = new Map<string, string>();
+    const seen = new Set<string>();
+    let totalBytes = 0;
+    let downloaded = 0;
+
+    for (const image of images) {
+        if (downloaded >= MAX_IMAGE_COUNT) break;
+        if (!image.url || seen.has(image.url)) continue;
+        seen.add(image.url);
+
+        const result = await fetchImageBuffer(image.url);
+        if (!result) continue;
+
+        if (totalBytes + result.buffer.length > MAX_TOTAL_IMAGE_BYTES) {
+            break;
+        }
+
+        const fileName = `${prefix}-${downloaded + 1}.${result.ext}`;
+        const filePath = path.join(uploadsDir, fileName);
+        await writeFile(filePath, result.buffer);
+
+        replacements.set(image.url, `/api/uploads/sources/${fileName}`);
+        totalBytes += result.buffer.length;
+        downloaded += 1;
+    }
+
+    return replacements;
+};
 
 /**
  * Extract YouTube video ID from URL or return the ID if already extracted
@@ -99,7 +226,7 @@ async function createChapters(
 /**
  * Handle adding a YouTube source
  */
-async function handleYouTubeSource(youtubeUrl: string, userId: string) {
+async function handleYouTubeSource(youtubeUrl: string, userId: string) {        
     // Extract video ID
     const videoId = extractYouTubeVideoId(youtubeUrl);
     if (!videoId) {
@@ -235,6 +362,186 @@ async function handleYouTubeSource(youtubeUrl: string, userId: string) {
     return NextResponse.json(sourceWithChapters, { status: 201 });
 }
 
+/**
+ * Handle adding a web page source
+ */
+async function handleWebSource(webUrl: string, userId: string) {
+    let parsedUrl: URL;
+    try {
+        parsedUrl = new URL(webUrl);
+    } catch {
+        return NextResponse.json(
+            { error: "Некорректный URL" },
+            { status: 400 }
+        );
+    }
+
+    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+        return NextResponse.json(
+            { error: "Поддерживаются только HTTP/HTTPS ссылки" },
+            { status: 400 }
+        );
+    }
+
+    let html = "";
+    try {
+        const response = await fetch(parsedUrl.toString(), {
+            redirect: "follow",
+            cache: "no-store",
+            headers: {
+                "User-Agent": "Cognibook/1.0 (+https://cognibook)",
+                Accept: "text/html,application/xhtml+xml,text/plain;q=0.9",
+            },
+        });
+
+        if (!response.ok) {
+            return NextResponse.json(
+                { error: "Не удалось загрузить страницу" },
+                { status: 400 }
+            );
+        }
+
+        const contentType = response.headers.get("content-type") || "";
+        if (
+            contentType &&
+            !contentType.includes("text/html") &&
+            !contentType.includes("text/plain") &&
+            !contentType.includes("application/xhtml+xml")
+        ) {
+            return NextResponse.json(
+                { error: "Неподдерживаемый формат страницы" },
+                { status: 400 }
+            );
+        }
+
+        html = await response.text();
+    } catch (error) {
+        console.error("Error fetching web page:", error);
+        return NextResponse.json(
+            { error: "Не удалось загрузить страницу" },
+            { status: 500 }
+        );
+    }
+
+    if (!html.trim()) {
+        return NextResponse.json(
+            { error: "Страница не содержит текста" },
+            { status: 400 }
+        );
+    }
+
+    const maxHtmlChars = 2_000_000;
+    if (html.length > maxHtmlChars) {
+        return NextResponse.json(
+            { error: "Страница слишком большая для обработки" },
+            { status: 413 }
+        );
+    }
+
+    const parsed = parseWebPageToMarkdown(html, {
+        baseUrl: parsedUrl.toString(),
+        fallbackTitle: parsedUrl.hostname,
+    });
+    if (!parsed.markdown.trim()) {
+        return NextResponse.json(
+            { error: "Не удалось извлечь текст со страницы" },
+            { status: 400 }
+        );
+    }
+
+    const fileHash = crypto
+        .createHash("sha256")
+        .update(parsed.markdown, "utf-8")
+        .digest("hex");
+
+    const existingByHash = await prisma.source.findFirst({
+        where: { fileHash, userId },
+    });
+
+    if (existingByHash) {
+        return NextResponse.json(
+            { error: "Страница уже добавлена", source: existingByHash },
+            { status: 409 }
+        );
+    }
+
+    const uploadsDir = path.join(process.cwd(), "uploads", "sources");
+    await mkdir(uploadsDir, { recursive: true });
+
+    const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    let coverPath: string | null = null;
+
+    if (parsed.coverUrl) {
+        const coverResult = await fetchImageBuffer(parsed.coverUrl);
+        if (coverResult) {
+            const coverFileName = `${uniqueId}-cover.${coverResult.ext}`;
+            const coverFilePath = path.join(uploadsDir, coverFileName);
+            await writeFile(coverFilePath, coverResult.buffer);
+            coverPath = `/uploads/sources/${coverFileName}`;
+        }
+    }
+
+    let markdown = parsed.markdown;
+    if (parsed.images.length > 0) {
+        const replacements = await downloadWebImages(
+            parsed.images,
+            uploadsDir,
+            `${uniqueId}-img`
+        );
+        markdown = rewriteMarkdownImages(markdown, replacements);
+    }
+
+    const markdownBuffer = Buffer.from(markdown, "utf-8");
+    const fileName = `${uniqueId}.md`;
+    const filePath = path.join(uploadsDir, fileName);
+    await writeFile(filePath, markdownBuffer);
+
+    let title = parsed.title || parsedUrl.hostname || "Web page";
+    let author = parsed.author;
+    let tocItems: TocItem[] = [];
+
+    try {
+        const parsedMarkdown = await parseMarkdownFile(markdownBuffer);
+        if (parsedMarkdown.metadata.title && parsedMarkdown.metadata.title !== "Untitled") {
+            title = parsedMarkdown.metadata.title;
+        }
+        if (parsedMarkdown.metadata.author) {
+            author = parsedMarkdown.metadata.author;
+        }
+        tocItems = parsedMarkdown.toc;
+    } catch (error) {
+        console.warn("Failed to parse extracted markdown:", error);
+    }
+
+    const source = await prisma.source.create({
+        data: {
+            title,
+            author,
+            coverPath,
+            filePath: `/uploads/sources/${fileName}`,
+            fileHash,
+            fileSize: markdownBuffer.length,
+            sourceType: "web",
+            userId,
+        },
+    });
+
+    if (tocItems.length > 0) {
+        await createChapters(source.id, tocItems, null);
+    }
+
+    const sourceWithChapters = await prisma.source.findUnique({
+        where: { id: source.id },
+        include: {
+            chapters: {
+                orderBy: { order: "asc" },
+            },
+        },
+    });
+
+    return NextResponse.json(sourceWithChapters, { status: 201 });
+}
+
 export async function GET(request: NextRequest) {
     const authResult = await requireAuth(request);
     if ("error" in authResult) {
@@ -281,16 +588,21 @@ export async function POST(request: NextRequest) {
         const formData = await request.formData();
         const file = formData.get("file") as File | null;
         const youtubeUrl = formData.get("youtubeUrl") as string | null;
+        const webUrl = formData.get("webUrl") as string | null;
 
         // Handle YouTube URL
         if (youtubeUrl) {
             return await handleYouTubeSource(youtubeUrl, authResult.user.userId);
         }
 
+        if (webUrl) {
+            return await handleWebSource(webUrl, authResult.user.userId);
+        }
+
         // Handle file upload
         if (!file) {
             return NextResponse.json(
-                { error: "No file or YouTube URL provided" },
+                { error: "No file or URL provided" },
                 { status: 400 }
             );
         }
