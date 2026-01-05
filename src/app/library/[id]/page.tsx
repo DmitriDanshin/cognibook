@@ -187,6 +187,7 @@ export default function SourceReaderPage({
             clearTimeout(enableTimeout);
             observer.disconnect();
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [contentReady, orderedChapters, chapterLookup, setSelectedChapter, scrollViewportRef, selectedChapter?.id]);
 
     // Quote highlighting

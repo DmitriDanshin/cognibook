@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import type { Chapter } from "../types";
 
 interface UseChapterContentOptions {
@@ -221,13 +221,9 @@ export function useChapterContent({
                 chaptersToLoad = orderedChapters;
             }
 
-            const failed: string[] = [];
             const entries = await Promise.all(
                 chaptersToLoad.map(async (chapter) => {
                     const content = await fetchChapterContent(chapter.id);
-                    if (content.includes("Не удалось загрузить")) {
-                        failed.push(chapter.id);
-                    }
                     return [chapter.id, content] as const;
                 })
             );

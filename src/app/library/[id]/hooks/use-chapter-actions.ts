@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
-import { toast } from "sonner";
-import type { Chapter } from "../types";
-import { extractTextFromHtml, getChapterWord } from "../utils";
+import {useCallback, useState} from "react";
+import {toast} from "sonner";
+import type {Chapter} from "../types";
+import {extractTextFromHtml, getChapterWord} from "../utils";
 
 interface UseChapterActionsOptions {
     selectedChapter: Chapter | null;
@@ -145,10 +145,9 @@ export function useChapterActions({
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        const fileName = chapterIdsToDownload.length === 1
+        link.download = chapterIdsToDownload.length === 1
             ? `${chapterLookup.get(chapterIdsToDownload[0])?.title || "chapter"}.txt`
             : `${sourceTitle || "chapters"}_${chapterIdsToDownload.length}_chapters.txt`;
-        link.download = fileName;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);

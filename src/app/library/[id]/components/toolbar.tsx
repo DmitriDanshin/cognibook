@@ -26,7 +26,6 @@ export function Toolbar({
     isMultiSelectMode,
     selectedChapterIds,
     returnToQuiz,
-    sidebarOpen,
     setSidebarOpen,
     toggleSearch,
     toggleMultiSelect,
