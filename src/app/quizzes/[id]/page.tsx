@@ -744,11 +744,11 @@ export default function QuizPage({
                                         <RadioGroup
                                             value={currentAnswer[0] || ""}
                                             onValueChange={handleSingleAnswer}
-                                            className="!gap-2 sm:!gap-3"
+                                            className="!gap-1 sm:!gap-2"
                                             disabled={isCurrentChecked}
                                         >
                                             {currentQuestion.options.map((option) => (
-                                                <div key={option.id} className="space-y-2">
+                                                <div key={option.id} className="space-y-1">
                                                     <label
                                                         className={`flex cursor-pointer items-start gap-1.5 rounded-lg border p-2.5 transition-all sm:gap-2.5 sm:p-3.5 ${isCurrentChecked
                                                             ? getOptionStyle(option)
@@ -799,9 +799,9 @@ export default function QuizPage({
                                             ))}
                                         </RadioGroup>
                                     ) : (
-                                        <div className="grid !gap-2 sm:!gap-3">
+                                        <div className="grid !gap-1 sm:!gap-2">
                                             {currentQuestion.options.map((option) => (
-                                                <div key={option.id} className="space-y-2">
+                                                <div key={option.id} className="space-y-1">
                                                     <label
                                                         className={`flex cursor-pointer items-start gap-1.5 rounded-lg border p-2.5 transition-all sm:gap-2.5 sm:p-3.5 ${isCurrentChecked
                                                             ? getOptionStyle(option)
