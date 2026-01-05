@@ -32,8 +32,8 @@ RUN adduser --system --uid 1001 nextjs
 # Install Python 3 and uv for YouTube transcript functionality
 RUN apk add --no-cache python3 py3-pip curl bash
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-RUN mv /root/.cargo/bin/uv /usr/local/bin/uv && \
-    mv /root/.cargo/bin/uvx /usr/local/bin/uvx 2>/dev/null || true
+RUN mv /root/.local/bin/uv /usr/local/bin/uv && \
+    mv /root/.local/bin/uvx /usr/local/bin/uvx
 ENV PATH="/usr/local/bin:${PATH}"
 
 # Pre-cache Python dependencies for faster YouTube operations
