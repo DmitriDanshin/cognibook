@@ -28,6 +28,7 @@ import {
     FileText,
     Clock,
     HardDrive,
+    Youtube,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -48,6 +49,8 @@ export default function LibraryPage() {
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [sourceType, setSourceType] = useState<"file" | "youtube">("file");
+    const [youtubeUrl, setYoutubeUrl] = useState("");
 
     const fetchSources = useCallback(async () => {
         try {
@@ -106,6 +109,49 @@ export default function LibraryPage() {
         } catch (error) {
             console.error("Error uploading source:", error);
             toast.error("Не удалось загрузить источник");
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleYouTubeSubmit = async () => {
+        if (!youtubeUrl.trim()) {
+            toast.error("Введите URL YouTube видео");
+            return;
+        }
+
+        setUploading(true);
+        const formData = new FormData();
+        formData.append("youtubeUrl", youtubeUrl);
+
+        try {
+            const response = await fetch("/api/sources", {
+                method: "POST",
+                body: formData,
+            });
+
+            const data = await response.json().catch(() => null);
+
+            if (!response.ok) {
+                if (response.status === 409) {
+                    toast.info("Видео уже добавлено");
+                    setIsDialogOpen(false);
+                    setYoutubeUrl("");
+                    fetchSources();
+                    return;
+                }
+                throw new Error(data?.error || "Failed to add YouTube video");
+            }
+
+            toast.success("YouTube видео успешно добавлено");
+            setIsDialogOpen(false);
+            setYoutubeUrl("");
+            fetchSources();
+        } catch (error) {
+            console.error("Error adding YouTube source:", error);
+            const errorMessage =
+                error instanceof Error ? error.message : "Не удалось добавить YouTube видео";
+            toast.error(errorMessage);
         } finally {
             setUploading(false);
         }
@@ -179,35 +225,89 @@ export default function LibraryPage() {
                             <DialogContent className="border-border bg-background">
                                 <DialogHeader>
                                     <DialogTitle className="text-foreground">
-                                        Загрузить источник
+                                        Добавить источник
                                     </DialogTitle>
                                     <DialogDescription className="text-muted-foreground">
-                                        Выберите файл в формате .epub или .md для загрузки в библиотеку
+                                        Загрузите файл или добавьте YouTube видео
                                     </DialogDescription>
                                 </DialogHeader>
                                 <div className="mt-4">
-                                    <label
-                                        htmlFor="epub-upload"
-                                        className="group flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/40 p-8 transition-all hover:border-foreground/40 hover:bg-muted/60"
-                                    >
-                                        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-foreground/10 text-foreground transition-transform group-hover:scale-110">
-                                            <Upload className="h-8 w-8" />
+                                    {/* Source Type Selector */}
+                                    <div className="mb-4 flex gap-2">
+                                        <Button
+                                            type="button"
+                                            variant={sourceType === "file" ? "default" : "outline"}
+                                            className="flex-1 gap-2"
+                                            onClick={() => setSourceType("file")}
+                                        >
+                                            <Upload className="h-4 w-4" />
+                                            Файл
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant={sourceType === "youtube" ? "default" : "outline"}
+                                            className="flex-1 gap-2"
+                                            onClick={() => setSourceType("youtube")}
+                                        >
+                                            <Youtube className="h-4 w-4" />
+                                            YouTube
+                                        </Button>
+                                    </div>
+
+                                    {/* File Upload */}
+                                    {sourceType === "file" && (
+                                        <label
+                                            htmlFor="epub-upload"
+                                            className="group flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/40 p-8 transition-all hover:border-foreground/40 hover:bg-muted/60"
+                                        >
+                                            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-foreground/10 text-foreground transition-transform group-hover:scale-110">
+                                                <Upload className="h-8 w-8" />
+                                            </div>
+                                            <span className="mb-2 text-lg font-medium text-foreground">
+                                                {uploading ? "Загрузка..." : "Нажмите для выбора файла"}
+                                            </span>
+                                            <span className="text-sm text-muted-foreground">
+                                                или перетащите файл сюда
+                                            </span>
+                                            <Input
+                                                id="epub-upload"
+                                                type="file"
+                                                accept=".epub,.md,.markdown"
+                                                className="hidden"
+                                                onChange={handleFileUpload}
+                                                disabled={uploading}
+                                            />
+                                        </label>
+                                    )}
+
+                                    {/* YouTube URL */}
+                                    {sourceType === "youtube" && (
+                                        <div className="space-y-4">
+                                            <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/40 p-8">
+                                                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-foreground/10 text-foreground">
+                                                    <Youtube className="h-8 w-8" />
+                                                </div>
+                                                <span className="mb-4 text-lg font-medium text-foreground">
+                                                    Добавить YouTube видео
+                                                </span>
+                                                <Input
+                                                    type="url"
+                                                    placeholder="https://www.youtube.com/watch?v=..."
+                                                    value={youtubeUrl}
+                                                    onChange={(e) => setYoutubeUrl(e.target.value)}
+                                                    disabled={uploading}
+                                                    className="w-full"
+                                                />
+                                            </div>
+                                            <Button
+                                                onClick={handleYouTubeSubmit}
+                                                disabled={uploading || !youtubeUrl.trim()}
+                                                className="w-full"
+                                            >
+                                                {uploading ? "Добавление..." : "Добавить видео"}
+                                            </Button>
                                         </div>
-                                        <span className="mb-2 text-lg font-medium text-foreground">
-                                            {uploading ? "Загрузка..." : "Нажмите для выбора файла"}
-                                        </span>
-                                        <span className="text-sm text-muted-foreground">
-                                            или перетащите файл сюда
-                                        </span>
-                                        <Input
-                                            id="epub-upload"
-                                            type="file"
-                                            accept=".epub,.md,.markdown"
-                                            className="hidden"
-                                            onChange={handleFileUpload}
-                                            disabled={uploading}
-                                        />
-                                    </label>
+                                    )}
                                 </div>
                             </DialogContent>
                         </Dialog>

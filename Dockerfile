@@ -29,6 +29,15 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
+# Install Python 3 and uv for YouTube transcript functionality
+RUN apk add --no-cache python3 py3-pip curl bash
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Pre-cache Python dependencies for faster YouTube operations
+# This will download youtube-transcript-api and yt-dlp on build
+RUN uv pip install --system youtube-transcript-api yt-dlp || true
+
 COPY --from=builder /app/public ./public
 
 # Set the correct permission for prerender cache
@@ -44,7 +53,7 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/src/generated ./src/generated
 
 # Create directories for uploads and db with correct permissions
-RUN mkdir -p uploads/books uploads/quizzes data
+RUN mkdir -p uploads/sources uploads/quizzes uploads/transcripts data
 RUN chown -R nextjs:nodejs uploads data
 
 USER nextjs

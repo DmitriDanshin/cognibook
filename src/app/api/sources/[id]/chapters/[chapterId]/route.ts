@@ -5,6 +5,7 @@ import { readFile } from "fs/promises";
 import path from "path";
 import { getEpubChapterContent } from "@/lib/parsers/epub-parser";
 import { getMarkdownChapterContent } from "@/lib/parsers/markdown-parser";
+import { getChapterContent as getYouTubeChapterContent } from "@/lib/parsers/youtube-parser";
 import { cache } from "@/lib/cache";
 
 export async function GET(
@@ -58,26 +59,56 @@ export async function GET(
             return NextResponse.json({ error: "Chapter not found" }, { status: 404 });
         }
 
-        // Try to get cached source buffer, otherwise read from disk
-        const bufferCacheKey = `buffer:${id}`;
-        let sourceBuffer = cache.get(bufferCacheKey) as Buffer | undefined;
-        if (!sourceBuffer) {
-            const sourcePath = path.join(process.cwd(), source.filePath);
-            sourceBuffer = await readFile(sourcePath);
-            cache.set(bufferCacheKey, sourceBuffer);
-        }
-
-        const fileExt = path.extname(source.filePath).toLowerCase();
         let content = "";
 
-        if (fileExt === ".epub") {
-            content = await getEpubChapterContent(sourceBuffer, chapter.href, id);
-        } else if (fileExt === ".md" || fileExt === ".markdown") {
-            content = await getMarkdownChapterContent(sourceBuffer, chapter.href);
+        // Handle YouTube sources
+        if (source.sourceType === "youtube" && source.youtubeVideoId) {
+            // Load transcript from JSON file
+            const transcriptPath = path.join(
+                process.cwd(),
+                "uploads",
+                "transcripts",
+                `${source.youtubeVideoId}.json`
+            );
+
+            try {
+                const transcriptBuffer = await readFile(transcriptPath, "utf-8");
+                const transcript = JSON.parse(transcriptBuffer);
+                content = getYouTubeChapterContent(transcript, chapter.href);
+            } catch (error) {
+                console.error("Error loading YouTube transcript:", error);
+                return NextResponse.json(
+                    { error: "Failed to load YouTube transcript" },
+                    { status: 500 }
+                );
+            }
+        } else if (source.filePath) {
+            // Handle file-based sources
+            // Try to get cached source buffer, otherwise read from disk
+            const bufferCacheKey = `buffer:${id}`;
+            let sourceBuffer = cache.get(bufferCacheKey) as Buffer | undefined;
+            if (!sourceBuffer) {
+                const sourcePath = path.join(process.cwd(), source.filePath);
+                sourceBuffer = await readFile(sourcePath);
+                cache.set(bufferCacheKey, sourceBuffer);
+            }
+
+            const fileExt = path.extname(source.filePath).toLowerCase();
+
+            if (fileExt === ".epub") {
+                content = await getEpubChapterContent(sourceBuffer, chapter.href, id);
+            } else if (fileExt === ".md" || fileExt === ".markdown") {
+                content = await getMarkdownChapterContent(sourceBuffer, chapter.href);
+            } else {
+                return NextResponse.json(
+                    { error: "Unsupported source format" },
+                    { status: 400 }
+                );
+            }
         } else {
             return NextResponse.json(
-                { error: "Unsupported source format" },
-                { status: 400 }
+                { error: "Invalid source configuration" },
+                { status: 500 }
             );
         }
 

@@ -32,22 +32,25 @@ model User {
 // ========================
 
 model Source {
-  id          String   @id @default(cuid())
-  title       String
-  author      String?
-  coverPath   String?
-  filePath    String   @unique
-  fileHash    String?
-  fileSize    Int?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  userId      String
+  id              String   @id @default(cuid())
+  title           String
+  author          String?
+  coverPath       String?
+  filePath        String?  @unique
+  fileHash        String?
+  fileSize        Int?
+  sourceType      String   @default("file") // "file" or "youtube"
+  youtubeVideoId  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  userId          String
 
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   chapters    Chapter[]
   readingProgress ReadingProgress[]
 
   @@unique([fileHash, userId])
+  @@unique([youtubeVideoId, userId])
   @@map("Book")
 }
 
