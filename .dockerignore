@@ -9,3 +9,4 @@ uploads
 .idea
 test-quiz.json
 .env*
+prisma.config.ts
