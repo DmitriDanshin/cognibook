@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
     Accordion,
     AccordionContent,
@@ -26,6 +27,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
     ArrowLeft,
     BookOpen,
+    CheckSquare,
     Clock,
     Copy,
     Download,
@@ -187,6 +189,8 @@ export default function SourceReaderPage({
     const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
     const [isSearchLoading, setIsSearchLoading] = useState(false);
     const searchInputRef = useRef<HTMLInputElement | null>(null);
+    const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
+    const [selectedChapterIds, setSelectedChapterIds] = useState<Set<string>>(new Set());
     const chapterStorageKey = useMemo(() => `source-last-chapter:${id}`, [id]);
     const tocStorageKey = useMemo(() => `source-toc-expanded:${id}`, [id]);
     const chapterIdsKey = useMemo(
@@ -755,28 +759,41 @@ export default function SourceReaderPage({
     };
 
     const handleCopyText = async () => {
-        if (!selectedChapter) {
+        // Determine which chapters to copy
+        const chapterIdsToCopy = isMultiSelectMode && selectedChapterIds.size > 0
+            ? orderedChapters.filter(c => selectedChapterIds.has(c.id)).map(c => c.id)
+            : selectedChapter ? [selectedChapter.id] : [];
+
+        if (chapterIdsToCopy.length === 0) {
             toast.error("Выберите главу для копирования");
             return;
         }
-        const chapterHtml = chapterContents[selectedChapter.id];
-        if (chapterHtml === undefined) {
-            toast.error("Содержимое главы еще загружается");
+
+        // Check if all chapters are loaded
+        const notLoadedChapters = chapterIdsToCopy.filter(id => chapterContents[id] === undefined);
+        if (notLoadedChapters.length > 0) {
+            toast.error("Содержимое некоторых глав еще загружается");
             return;
         }
-        // Strip HTML tags for plain text
-        const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = chapterHtml;
-        const plainText = tempDiv.textContent || tempDiv.innerText;
+
+        // Combine content from all selected chapters in order
+        const combinedText = chapterIdsToCopy.map(id => {
+            const chapter = chapterLookup.get(id);
+            const chapterHtml = chapterContents[id];
+            const tempDiv = document.createElement("div");
+            tempDiv.innerHTML = chapterHtml;
+            const plainText = tempDiv.textContent || tempDiv.innerText;
+            return chapter ? `\n\n=== ${chapter.title} ===\n\n${plainText}` : plainText;
+        }).join("\n").trim();
 
         try {
             // Try modern clipboard API first
             if (navigator.clipboard && window.isSecureContext) {
-                await navigator.clipboard.writeText(plainText);
+                await navigator.clipboard.writeText(combinedText);
             } else {
                 // Fallback for non-secure contexts (HTTP)
                 const textArea = document.createElement("textarea");
-                textArea.value = plainText;
+                textArea.value = combinedText;
                 textArea.style.position = "fixed";
                 textArea.style.left = "-999999px";
                 document.body.appendChild(textArea);
@@ -784,37 +801,58 @@ export default function SourceReaderPage({
                 document.execCommand("copy");
                 document.body.removeChild(textArea);
             }
-            toast.success("Текст скопирован в буфер обмена");
+            const chapterWord = chapterIdsToCopy.length === 1 ? "глава" :
+                chapterIdsToCopy.length < 5 ? "главы" : "глав";
+            toast.success(`Скопировано ${chapterIdsToCopy.length} ${chapterWord}`);
         } catch {
             toast.error("Не удалось скопировать текст");
         }
     };
 
     const handleDownloadTxt = () => {
-        if (!selectedChapter) {
+        // Determine which chapters to download
+        const chapterIdsToDownload = isMultiSelectMode && selectedChapterIds.size > 0
+            ? orderedChapters.filter(c => selectedChapterIds.has(c.id)).map(c => c.id)
+            : selectedChapter ? [selectedChapter.id] : [];
+
+        if (chapterIdsToDownload.length === 0) {
             toast.error("Выберите главу для скачивания");
             return;
         }
-        const chapterHtml = chapterContents[selectedChapter.id];
-        if (chapterHtml === undefined) {
-            toast.error("Содержимое главы еще загружается");
+
+        // Check if all chapters are loaded
+        const notLoadedChapters = chapterIdsToDownload.filter(id => chapterContents[id] === undefined);
+        if (notLoadedChapters.length > 0) {
+            toast.error("Содержимое некоторых глав еще загружается");
             return;
         }
-        const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = chapterHtml;
-        const plainText = tempDiv.textContent || tempDiv.innerText;
 
-        const blob = new Blob([plainText], { type: "text/plain;charset=utf-8" });
+        // Combine content from all selected chapters in order
+        const combinedText = chapterIdsToDownload.map(id => {
+            const chapter = chapterLookup.get(id);
+            const chapterHtml = chapterContents[id];
+            const tempDiv = document.createElement("div");
+            tempDiv.innerHTML = chapterHtml;
+            const plainText = tempDiv.textContent || tempDiv.innerText;
+            return chapter ? `\n\n=== ${chapter.title} ===\n\n${plainText}` : plainText;
+        }).join("\n").trim();
+
+        const blob = new Blob([combinedText], { type: "text/plain;charset=utf-8" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `${selectedChapter?.title || "chapter"}.txt`;
+        const fileName = chapterIdsToDownload.length === 1
+            ? `${chapterLookup.get(chapterIdsToDownload[0])?.title || "chapter"}.txt`
+            : `${source?.title || "chapters"}_${chapterIdsToDownload.length}_chapters.txt`;
+        link.download = fileName;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
 
-        toast.success("Файл скачан");
+        const chapterWord = chapterIdsToDownload.length === 1 ? "глава" :
+            chapterIdsToDownload.length < 5 ? "главы" : "глав";
+        toast.success(`Скачано ${chapterIdsToDownload.length} ${chapterWord}`);
     };
 
     const clearSearchHighlights = useCallback(() => {
@@ -1068,9 +1106,30 @@ export default function SourceReaderPage({
         }
     };
 
+    const handleChapterCheckboxChange = (chapterId: string, checked: boolean) => {
+        setSelectedChapterIds(prev => {
+            const newSet = new Set(prev);
+            if (checked) {
+                newSet.add(chapterId);
+            } else {
+                newSet.delete(chapterId);
+            }
+            return newSet;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedChapterIds.size === orderedChapters.length) {
+            setSelectedChapterIds(new Set());
+        } else {
+            setSelectedChapterIds(new Set(orderedChapters.map(c => c.id)));
+        }
+    };
+
     const renderChapterItem = (chapter: Chapter, level: number = 0) => {
         const hasChildren = chapter.children && chapter.children.length > 0;
         const isSelected = selectedChapter?.id === chapter.id;
+        const isChecked = selectedChapterIds.has(chapter.id);
 
         if (hasChildren) {
             return (
@@ -1084,9 +1143,21 @@ export default function SourceReaderPage({
                             className="flex flex-1 items-center gap-2"
                             onClick={(event) => {
                                 event.stopPropagation();
-                                handleSelectChapter(chapter);
+                                if (isMultiSelectMode) {
+                                    handleChapterCheckboxChange(chapter.id, !isChecked);
+                                } else {
+                                    handleSelectChapter(chapter);
+                                }
                             }}
                         >
+                            {isMultiSelectMode && (
+                                <Checkbox
+                                    checked={isChecked}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onCheckedChange={(checked) => handleChapterCheckboxChange(chapter.id, checked === true)}
+                                    className="h-4 w-4 flex-shrink-0"
+                                />
+                            )}
                             {chapter.title}
                             {renderQuizStatusIcon(chapter.quizStatus)}
                         </span>
@@ -1103,14 +1174,29 @@ export default function SourceReaderPage({
         return (
             <button
                 key={chapter.id}
-                onClick={() => handleSelectChapter(chapter)}
+                onClick={() => {
+                    if (isMultiSelectMode) {
+                        handleChapterCheckboxChange(chapter.id, !isChecked);
+                    } else {
+                        handleSelectChapter(chapter);
+                    }
+                }}
                 className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors hover:bg-foreground/5 ${isSelected
                     ? "bg-foreground/10 text-foreground"
                     : "text-muted-foreground hover:text-foreground"
-                    }`}
+                    } ${isChecked ? "bg-primary/10" : ""}`}
                 style={{ paddingLeft: `${level * 16 + 16}px` }}
             >
-                <ChevronRight className="h-3 w-3 flex-shrink-0" />
+                {isMultiSelectMode ? (
+                    <Checkbox
+                        checked={isChecked}
+                        onClick={(e) => e.stopPropagation()}
+                        onCheckedChange={(checked) => handleChapterCheckboxChange(chapter.id, checked === true)}
+                        className="h-4 w-4 flex-shrink-0"
+                    />
+                ) : (
+                    <ChevronRight className="h-3 w-3 flex-shrink-0" />
+                )}
                 <span className="line-clamp-1 flex-1">{chapter.title}</span>
                 {renderQuizStatusIcon(chapter.quizStatus)}
             </button>
@@ -1283,19 +1369,31 @@ export default function SourceReaderPage({
                     <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                         Оглавление
                     </h2>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-                        onClick={() =>
-                            setExpandedChapters(
-                                isAllExpanded ? [] : expandableChapterIds
-                            )
-                        }
-                        disabled={expandableChapterIds.length === 0}
-                    >
-                        {isAllExpanded ? "Свернуть" : "Раскрыть"}
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        {isMultiSelectMode && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                                onClick={toggleSelectAll}
+                            >
+                                {selectedChapterIds.size === orderedChapters.length ? "Снять всё" : "Выбрать всё"}
+                            </Button>
+                        )}
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() =>
+                                setExpandedChapters(
+                                    isAllExpanded ? [] : expandableChapterIds
+                                )
+                            }
+                            disabled={expandableChapterIds.length === 0}
+                        >
+                            {isAllExpanded ? "Свернуть" : "Раскрыть"}
+                        </Button>
+                    </div>
                 </div>
                 <ScrollArea className="h-[calc(100dvh-8rem)]">
                     {chapterTree.length > 0 ? (
@@ -1348,7 +1446,7 @@ export default function SourceReaderPage({
                                 </Button>
                             </Link>
                         )}
-                        <h1 className="line-clamp-1 text-base font-medium text-foreground sm:text-lg">
+                        <h1 className="hidden line-clamp-1 text-base font-medium text-foreground sm:block sm:text-lg">
                             {selectedChapter?.title || "Выберите главу"}
                         </h1>
                     </div>
@@ -1512,10 +1610,40 @@ export default function SourceReaderPage({
                             <span className="hidden sm:inline">Поиск</span>
                         </Button>
                         <Button
+                            variant={isMultiSelectMode ? "default" : "outline"}
+                            size="sm"
+                            className={`gap-1 sm:gap-2 ${isMultiSelectMode ? "" : "text-muted-foreground hover:text-foreground"}`}
+                            onClick={() => {
+                                if (!isMultiSelectMode) {
+                                    // Entering multi-select mode - open sidebar
+                                    setIsMultiSelectMode(true);
+                                    setSidebarOpen(true);
+                                } else {
+                                    // Exiting multi-select mode - clear selection
+                                    setIsMultiSelectMode(false);
+                                    setSelectedChapterIds(new Set());
+                                }
+                            }}
+                            title={isMultiSelectMode ? `Выбрано ${selectedChapterIds.size} глав` : "Режим выбора глав"}
+                        >
+                            <CheckSquare className="h-4 w-4" />
+                            {isMultiSelectMode && selectedChapterIds.size > 0 && (
+                                <span className="min-w-[1.25rem] rounded-full bg-primary-foreground px-1.5 py-0.5 text-xs font-medium text-primary sm:hidden">
+                                    {selectedChapterIds.size}
+                                </span>
+                            )}
+                            <span className="hidden sm:inline">
+                                {isMultiSelectMode
+                                    ? `Выбрано: ${selectedChapterIds.size}`
+                                    : "Выбрать"}
+                            </span>
+                        </Button>
+                        <Button
                             variant="outline"
                             size="sm"
                             className="gap-2 text-muted-foreground hover:text-foreground"
                             onClick={handleCopyText}
+                            disabled={isMultiSelectMode && selectedChapterIds.size === 0}
                         >
                             <Copy className="h-4 w-4" />
                             <span className="hidden sm:inline">Копировать</span>
@@ -1525,6 +1653,7 @@ export default function SourceReaderPage({
                             size="sm"
                             className="gap-2 text-muted-foreground hover:text-foreground"
                             onClick={handleDownloadTxt}
+                            disabled={isMultiSelectMode && selectedChapterIds.size === 0}
                         >
                             <Download className="h-4 w-4" />
                             <span className="hidden sm:inline">Скачать TXT</span>
