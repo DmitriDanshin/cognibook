@@ -1,4 +1,5 @@
 import { TocItem } from "./types";
+import { escapeHtml } from "../utils/html";
 
 interface TranscriptSnippet {
     text: string;
@@ -93,7 +94,7 @@ export function getFullTranscriptContent(transcript: TranscriptSnippet[]): strin
         const timestamp = formatTimestamp(snippet.start);
         html += `  <p data-timestamp="${snippet.start}">`;
         html += `<span class="timestamp">[${timestamp}]</span> `;
-        html += `${snippet.text}`;
+        html += `${escapeHtml(snippet.text)}`;
         html += `</p>\n`;
     }
 

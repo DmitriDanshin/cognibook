@@ -1,5 +1,6 @@
 import { BaseParser } from "./base-parser";
 import type { SourceMetadata, ParsedMarkdown, SpineItem, TocItem } from "./types";
+import { escapeHtml } from "../utils/html";
 
 type MarkdownHeading = {
     level: number;
@@ -284,7 +285,7 @@ export class MarkdownParser extends BaseParser<ParsedMarkdown> {
                     const match = /^```(\S+)?/.exec(trimmed);
                     codeFenceLanguage = match?.[1] ?? null;
                     const languageClass = codeFenceLanguage
-                        ? ` class="language-${this.escapeHtml(codeFenceLanguage)}"`
+                        ? ` class="language-${escapeHtml(codeFenceLanguage)}"`
                         : "";
                     html += `<pre><code${languageClass}>`;
                     inCodeBlock = true;
@@ -297,12 +298,12 @@ export class MarkdownParser extends BaseParser<ParsedMarkdown> {
             }
 
             if (inCodeBlock) {
-                html += `${this.escapeHtml(line)}\n`;
+                html += `${escapeHtml(line)}\n`;
                 continue;
             }
 
             if (inHtmlBlock) {
-                html += `${line}\n`;
+                html += `${escapeHtml(line)}\n`;
                 if (trimmed.endsWith(">")) {
                     inHtmlBlock = false;
                 }
@@ -312,7 +313,7 @@ export class MarkdownParser extends BaseParser<ParsedMarkdown> {
             if (trimmed.startsWith("<")) {
                 flushParagraph();
                 closeList();
-                html += `${line}\n`;
+                html += `${escapeHtml(line)}\n`;
                 if (!trimmed.endsWith(">")) {
                     inHtmlBlock = true;
                 }
@@ -371,7 +372,7 @@ export class MarkdownParser extends BaseParser<ParsedMarkdown> {
     }
 
     private formatInline(text: string): string {
-        let escaped = this.escapeHtml(text);
+        let escaped = escapeHtml(text);
 
         escaped = escaped.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, alt, url) => {
             return `<img src="${url}" alt="${alt}" />`;
@@ -386,14 +387,6 @@ export class MarkdownParser extends BaseParser<ParsedMarkdown> {
         });
 
         return escaped;
-    }
-
-    private escapeHtml(text: string): string {
-        return text
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;");
     }
 }
 

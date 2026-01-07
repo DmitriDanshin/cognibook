@@ -4,9 +4,14 @@ import { prisma } from "./db";
 import bcrypt from "bcryptjs";
 import { NextRequest, NextResponse } from "next/server";
 
-const JWT_SECRET = new TextEncoder().encode(
-    process.env.JWT_SECRET || "your-super-secret-key-change-in-production"
-);
+if (!process.env.JWT_SECRET) {
+    throw new Error(
+        "FATAL: JWT_SECRET environment variable is not set. " +
+        "The application cannot start without a secure secret."
+    );
+}
+
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
 const COOKIE_NAME = "auth-token";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
@@ -60,7 +65,7 @@ export function setAuthCookie(
     response.cookies.set(COOKIE_NAME, token, {
         httpOnly: true,
         secure: isSecureRequest(request),
-        sameSite: "lax",
+        sameSite: "strict",
         maxAge: COOKIE_MAX_AGE,
         path: "/",
     });
