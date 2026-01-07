@@ -113,6 +113,8 @@ export default function SourceReaderPage({
         chapterContents,
         chapterLookup,
         sourceTitle: source?.title,
+        fetchChapterContent,
+        setChapterContents,
     });
 
     // Wrap the base handleSelectChapter to also set selectedChapter

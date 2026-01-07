@@ -1,9 +1,9 @@
 "use client";
 
-import {useCallback, useState} from "react";
-import {toast} from "sonner";
-import type {Chapter} from "../types";
-import {extractTextFromHtml, getChapterWord} from "../utils";
+import { useCallback, useState } from "react";
+import { toast } from "sonner";
+import type { Chapter } from "../types";
+import { extractTextFromHtml, getChapterWord } from "../utils";
 
 interface UseChapterActionsOptions {
     selectedChapter: Chapter | null;
@@ -11,6 +11,8 @@ interface UseChapterActionsOptions {
     chapterContents: Record<string, string>;
     chapterLookup: Map<string, Chapter>;
     sourceTitle: string | undefined;
+    fetchChapterContent: (chapterId: string) => Promise<string>;
+    setChapterContents: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 }
 
 interface UseChapterActionsReturn {
@@ -22,7 +24,7 @@ interface UseChapterActionsReturn {
     toggleSelectAll: () => void;
     toggleMultiSelect: (setSidebarOpen: (open: boolean) => void) => void;
     handleCopyText: () => Promise<void>;
-    handleDownloadTxt: () => void;
+    handleDownloadTxt: () => Promise<void>;
 }
 
 export function useChapterActions({
@@ -31,6 +33,8 @@ export function useChapterActions({
     chapterContents,
     chapterLookup,
     sourceTitle,
+    fetchChapterContent,
+    setChapterContents,
 }: UseChapterActionsOptions): UseChapterActionsReturn {
     const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
     const [selectedChapterIds, setSelectedChapterIds] = useState<Set<string>>(new Set());
@@ -78,17 +82,39 @@ export function useChapterActions({
             return;
         }
 
-        // Check if all chapters are loaded
-        const notLoadedChapters = chapterIdsToCopy.filter(id => chapterContents[id] === undefined);
-        if (notLoadedChapters.length > 0) {
-            toast.error("Содержимое некоторых глав еще загружается");
-            return;
+        // Load missing chapters if needed
+        const notLoadedChapterIds = chapterIdsToCopy.filter(id => chapterContents[id] === undefined);
+        let finalContents = chapterContents;
+
+        if (notLoadedChapterIds.length > 0) {
+            const loadingToast = toast.loading(`Загрузка ${notLoadedChapterIds.length} глав...`);
+            try {
+                const loadedEntries = await Promise.all(
+                    notLoadedChapterIds.map(async (id) => {
+                        const content = await fetchChapterContent(id);
+                        return [id, content] as const;
+                    })
+                );
+
+                // Update global chapter contents state
+                const newContents = Object.fromEntries(loadedEntries);
+                setChapterContents(prev => ({ ...prev, ...newContents }));
+
+                // Merge with current contents for immediate use
+                finalContents = { ...chapterContents, ...newContents };
+                toast.dismiss(loadingToast);
+            } catch (error) {
+                toast.dismiss(loadingToast);
+                toast.error("Не удалось загрузить содержимое глав");
+                console.error("Failed to load chapters:", error);
+                return;
+            }
         }
 
         // Combine content from all selected chapters in order
         const combinedText = chapterIdsToCopy.map(id => {
             const chapter = chapterLookup.get(id);
-            const chapterHtml = chapterContents[id];
+            const chapterHtml = finalContents[id];
             const plainText = extractTextFromHtml(chapterHtml);
             return chapter ? `\n\n=== ${chapter.title} ===\n\n${plainText}` : plainText;
         }).join("\n").trim();
@@ -113,9 +139,9 @@ export function useChapterActions({
         } catch {
             toast.error("Не удалось скопировать текст");
         }
-    }, [isMultiSelectMode, selectedChapterIds, selectedChapter, orderedChapters, chapterContents, chapterLookup]);
+    }, [isMultiSelectMode, selectedChapterIds, selectedChapter, orderedChapters, chapterContents, chapterLookup, fetchChapterContent, setChapterContents]);
 
-    const handleDownloadTxt = useCallback(() => {
+    const handleDownloadTxt = useCallback(async () => {
         // Determine which chapters to download
         const chapterIdsToDownload = isMultiSelectMode && selectedChapterIds.size > 0
             ? orderedChapters.filter(c => selectedChapterIds.has(c.id)).map(c => c.id)
@@ -126,17 +152,39 @@ export function useChapterActions({
             return;
         }
 
-        // Check if all chapters are loaded
-        const notLoadedChapters = chapterIdsToDownload.filter(id => chapterContents[id] === undefined);
-        if (notLoadedChapters.length > 0) {
-            toast.error("Содержимое некоторых глав еще загружается");
-            return;
+        // Load missing chapters if needed
+        const notLoadedChapterIds = chapterIdsToDownload.filter(id => chapterContents[id] === undefined);
+        let finalContents = chapterContents;
+
+        if (notLoadedChapterIds.length > 0) {
+            const loadingToast = toast.loading(`Загрузка ${notLoadedChapterIds.length} глав...`);
+            try {
+                const loadedEntries = await Promise.all(
+                    notLoadedChapterIds.map(async (id) => {
+                        const content = await fetchChapterContent(id);
+                        return [id, content] as const;
+                    })
+                );
+
+                // Update global chapter contents state
+                const newContents = Object.fromEntries(loadedEntries);
+                setChapterContents(prev => ({ ...prev, ...newContents }));
+
+                // Merge with current contents for immediate use
+                finalContents = { ...chapterContents, ...newContents };
+                toast.dismiss(loadingToast);
+            } catch (error) {
+                toast.dismiss(loadingToast);
+                toast.error("Не удалось загрузить содержимое глав");
+                console.error("Failed to load chapters:", error);
+                return;
+            }
         }
 
         // Combine content from all selected chapters in order
         const combinedText = chapterIdsToDownload.map(id => {
             const chapter = chapterLookup.get(id);
-            const chapterHtml = chapterContents[id];
+            const chapterHtml = finalContents[id];
             const plainText = extractTextFromHtml(chapterHtml);
             return chapter ? `\n\n=== ${chapter.title} ===\n\n${plainText}` : plainText;
         }).join("\n").trim();
@@ -155,7 +203,7 @@ export function useChapterActions({
 
         const chapterWord = getChapterWord(chapterIdsToDownload.length);
         toast.success(`Скачано ${chapterIdsToDownload.length} ${chapterWord}`);
-    }, [isMultiSelectMode, selectedChapterIds, selectedChapter, orderedChapters, chapterContents, chapterLookup, sourceTitle]);
+    }, [isMultiSelectMode, selectedChapterIds, selectedChapter, orderedChapters, chapterContents, chapterLookup, sourceTitle, fetchChapterContent, setChapterContents]);
 
     return {
         isMultiSelectMode,
