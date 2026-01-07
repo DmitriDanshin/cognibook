@@ -104,7 +104,7 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
         const weeksCanFit = Math.floor(availableWidth / weekColumnWidth);
 
         // Convert weeks to months (roughly 4.3 weeks per month)
-        let months = Math.min(12, Math.max(2, Math.floor(weeksCanFit / 4.3)));
+        const months = Math.min(12, Math.max(2, Math.floor(weeksCanFit / 4.3)));
 
         const start = new Date(today);
         start.setMonth(start.getMonth() - months);
@@ -128,19 +128,19 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
     }, [data, containerWidth]);
 
     // Dynamic color based on count relative to max
-    // Inverted: brighter = fewer tests, darker = more tests
+    // Normal: darker = fewer tests, brighter = more tests
     const getColor = useCallback((count: number): string => {
         if (count === 0) return "#27272a"; // zinc-800 for empty cells
 
         // Calculate intensity (0 to 1) based on count relative to max
         const intensity = count / maxCount;
 
-        // Inverted emerald color scale
-        // More tests = darker, fewer tests = brighter
-        if (intensity <= 0.25) return "#34d399"; // emerald-400 (brightest)
-        if (intensity <= 0.5) return "#10b981";  // emerald-500
-        if (intensity <= 0.75) return "#047857"; // emerald-700
-        return "#064e3b";                         // emerald-950 (darkest)
+        // Emerald color scale
+        // More tests = brighter, fewer tests = darker
+        if (intensity <= 0.25) return "#064e3b"; // emerald-950 (darkest)
+        if (intensity <= 0.5) return "#047857";  // emerald-700
+        if (intensity <= 0.75) return "#10b981"; // emerald-500
+        return "#34d399";                         // emerald-400 (brightest)
     }, [maxCount]);
 
     // Calculate heatmap width based on container
@@ -212,10 +212,10 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
                         </span>
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                             <span>Меньше</span>
-                            <div className="h-2.5 w-2.5 rounded-sm bg-[#34d399] sm:h-[10px] sm:w-[10px]" />
-                            <div className="h-2.5 w-2.5 rounded-sm bg-[#10b981] sm:h-[10px] sm:w-[10px]" />
-                            <div className="h-2.5 w-2.5 rounded-sm bg-[#047857] sm:h-[10px] sm:w-[10px]" />
                             <div className="h-2.5 w-2.5 rounded-sm bg-[#064e3b] sm:h-[10px] sm:w-[10px]" />
+                            <div className="h-2.5 w-2.5 rounded-sm bg-[#047857] sm:h-[10px] sm:w-[10px]" />
+                            <div className="h-2.5 w-2.5 rounded-sm bg-[#10b981] sm:h-[10px] sm:w-[10px]" />
+                            <div className="h-2.5 w-2.5 rounded-sm bg-[#34d399] sm:h-[10px] sm:w-[10px]" />
                             <span>Больше</span>
                         </div>
                     </div>
