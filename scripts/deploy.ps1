@@ -1,7 +1,8 @@
 param(
     [string]$ServerHost = "194.28.226.156",
     [string]$User = "root",
-    [string]$AppDir = "/opt/cognibook"
+    [string]$AppDir = "/opt/cognibook",
+    [switch]$NoBuild  # Добавить флаг для пропуска пересборки
 )
 
 Set-StrictMode -Version Latest
@@ -48,7 +49,15 @@ ssh $target "mkdir -p $AppDir && tar -xf /tmp/cognibook-deploy.tar -C $AppDir &&
 
 Remove-Item -Force $archivePath
 
-Write-Host "Building and starting containers..."
-ssh $target "cd $AppDir && docker-compose up -d --build"
+if ($NoBuild) {
+    Write-Host "Restarting containers without rebuild..."
+    ssh $target "cd $AppDir && docker-compose up -d"
+} else {
+    Write-Host "Building and starting containers..."
+    ssh $target "cd $AppDir && docker-compose up -d --build"
+
+    Write-Host "Cleaning up old Docker images..."
+    ssh $target "docker image prune -f && docker container prune -f"
+}
 
 Write-Host "Deploy completed."
