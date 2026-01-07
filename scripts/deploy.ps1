@@ -33,6 +33,8 @@ try {
         --exclude='.git' `
         --exclude='dev.db' `
         --exclude='uploads' `
+        --exclude='.env' `
+        --exclude='.env.local' `
         -cf $archivePath .
 } finally {
     Pop-Location
