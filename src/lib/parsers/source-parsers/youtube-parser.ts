@@ -1,5 +1,5 @@
 import { TocItem } from "./types";
-import { escapeHtml } from "../utils/html";
+import { escapeHtml } from "../../utils/html";
 
 interface TranscriptSnippet {
     text: string;

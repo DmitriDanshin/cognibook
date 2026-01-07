@@ -37,10 +37,10 @@ export interface EpubMetadata extends SourceMetadata {
     coverHref: string | null;
 }
 
-export interface EpubChapterContent extends ChapterContent {}
+export type EpubChapterContent = ChapterContent;
 
-export interface ParsedEpub extends ParsedSource<EpubMetadata> {}
+export type ParsedEpub = ParsedSource<EpubMetadata>;
 
 export type MarkdownMetadata = SourceMetadata;
 
-export interface ParsedMarkdown extends ParsedSource<MarkdownMetadata> {}
+export type ParsedMarkdown = ParsedSource<MarkdownMetadata>;

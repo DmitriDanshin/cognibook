@@ -43,10 +43,10 @@ export function QuizDialog({
             <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto border-border bg-background">
                 <DialogHeader>
                     <DialogTitle className="text-foreground">
-                        Загрузить JSON тест
+                        Загрузить тест (JSON или YAML)
                     </DialogTitle>
                     <DialogDescription className="text-muted-foreground">
-                        Вставьте готовый JSON. Файл .json можно загрузить дополнительно
+                        Вставьте готовый JSON или YAML. Файл .json/.yaml/.yml можно загрузить дополнительно
                     </DialogDescription>
                 </DialogHeader>
                 <div className="mt-4 space-y-4">
@@ -90,12 +90,12 @@ export function QuizDialog({
 
                     <div className="space-y-3">
                         <label className="text-sm font-medium text-foreground">
-                            JSON теста
+                            Текст теста (JSON или YAML)
                         </label>
                         <Textarea
                             value={quizJsonText}
                             onChange={(e) => setQuizJsonText(e.target.value)}
-                            placeholder="Вставьте JSON теста сюда"
+                            placeholder="Вставьте JSON или YAML теста сюда"
                             className="min-h-40 max-h-60 resize-y overflow-y-auto bg-background text-foreground placeholder:text-muted-foreground"
                             disabled={quizUploading}
                         />
@@ -108,7 +108,7 @@ export function QuizDialog({
                             {quizUploading ? "Загрузка..." : "Импортировать из текста"}
                         </Button>
                         <p className="text-xs text-muted-foreground">
-                            Вставьте готовый JSON. Для файлов используйте загрузку ниже.
+                            Вставьте готовый JSON или YAML. Для файлов используйте загрузку ниже.
                         </p>
                     </div>
 
@@ -117,10 +117,10 @@ export function QuizDialog({
                             <div className="space-y-1">
                                 <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                                     <FileJson className="h-4 w-4" />
-                                    Файл .json
+                                    Файл .json/.yaml/.yml
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                    Поддерживаются файлы только в формате JSON.
+                                    Поддерживаются файлы JSON или YAML.
                                 </p>
                             </div>
                             <Button
@@ -140,7 +140,7 @@ export function QuizDialog({
                             <Input
                                 id="chapter-quiz-upload"
                                 type="file"
-                                accept=".json"
+                                accept=".json,.yaml,.yml"
                                 className="hidden"
                                 onChange={onQuizFileUpload}
                                 disabled={quizUploading}

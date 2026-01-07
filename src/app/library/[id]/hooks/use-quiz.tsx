@@ -61,7 +61,7 @@ export function useQuiz({
             if (!response.ok) {
                 if (data.details) {
                     setQuizValidationErrors(data.details);
-                    toast.error("Ошибка валидации JSON");
+                    toast.error("Ошибка валидации формата");
                 } else {
                     toast.error(data.error || "Не удалось загрузить тест");
                 }
@@ -109,8 +109,10 @@ export function useQuiz({
         const file = e.target.files?.[0];
         if (!file) return;
 
-        if (!file.name.endsWith(".json")) {
-            toast.error("Поддерживаются только файлы JSON");
+        const lowerName = file.name.toLowerCase();
+        const allowedExtensions = [".json", ".yaml", ".yml"];
+        if (!allowedExtensions.some((ext) => lowerName.endsWith(ext))) {
+            toast.error("Поддерживаются файлы JSON или YAML");
             return;
         }
 
@@ -121,20 +123,13 @@ export function useQuiz({
 
     const handleQuizTextUpload = useCallback(async () => {
         if (!quizJsonText.trim()) {
-            toast.error("Вставьте JSON");
-            return;
-        }
-
-        try {
-            JSON.parse(quizJsonText);
-        } catch {
-            toast.error("Невалидный JSON");
+            toast.error("Вставьте JSON или YAML");
             return;
         }
 
         const formData = new FormData();
-        const file = new File([quizJsonText], "quiz.json", {
-            type: "application/json",
+        const file = new File([quizJsonText], "quiz.yaml", {
+            type: "text/yaml",
         });
         formData.append("file", file);
         await submitQuiz(formData);

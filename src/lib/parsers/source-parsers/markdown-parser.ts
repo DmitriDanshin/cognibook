@@ -1,6 +1,6 @@
 import { BaseParser } from "./base-parser";
 import type { SourceMetadata, ParsedMarkdown, SpineItem, TocItem } from "./types";
-import { escapeHtml } from "../utils/html";
+import { escapeHtml } from "../../utils/html";
 
 type MarkdownHeading = {
     level: number;

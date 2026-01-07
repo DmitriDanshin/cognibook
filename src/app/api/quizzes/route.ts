@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
-import { QuizSchema } from "@/lib/schemas/quiz";
+import { parseQuizContent, QuizParseError } from "../../../lib/parsers/quiz-parsers";
 import { ZodError } from "zod";
 import { Prisma } from "@/generated/prisma/client";
 
@@ -76,28 +76,13 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "No file provided" }, { status: 400 });
         }
 
-        if (!file.name.endsWith(".json")) {
-            return NextResponse.json(
-                { error: "Only JSON files are supported" },
-                { status: 400 }
-            );
-        }
-
-        // Read and parse JSON
+        // Read and parse quiz content
         const text = await file.text();
-        let jsonData: unknown;
-
-        try {
-            jsonData = JSON.parse(text);
-        } catch {
-            return NextResponse.json(
-                { error: "Invalid JSON format" },
-                { status: 400 }
-            );
-        }
-
-        // Validate with Zod schema
-        const validatedData = QuizSchema.parse(jsonData);
+        const validatedData = parseQuizContent({
+            content: text,
+            fileName: file.name,
+            contentType: file.type,
+        });
 
         let resolvedChapterId: string | null = null;
 
@@ -185,6 +170,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(quiz, { status: 201 });
     } catch (error) {
         console.error("Error creating quiz:", error);
+
+        if (error instanceof QuizParseError) {
+            return NextResponse.json({ error: error.message }, { status: 400 });
+        }
 
         if (error instanceof ZodError) {
             const formattedErrors = error.issues.map((issue) => ({

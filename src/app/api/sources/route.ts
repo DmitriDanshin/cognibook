@@ -3,15 +3,21 @@ import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { writeFile, mkdir, readFile } from "fs/promises";
 import path from "path";
-import { parseEpubFile, TocItem } from "@/lib/parsers/epub-parser";
-import { parseMarkdownFile } from "@/lib/parsers/markdown-parser";
-import { parseYouTubeTranscript } from "@/lib/parsers/youtube-parser";
-import { parseWebPageToMarkdown, type WebImage } from "@/lib/parsers/web-parser";
+import { parseEpubFile, TocItem } from "@/lib/parsers/source-parsers/epub-parser";
+import { parseMarkdownFile } from "@/lib/parsers/source-parsers/markdown-parser";
+import { parseYouTubeTranscript } from "@/lib/parsers/source-parsers/youtube-parser";
+import { parseWebPageToMarkdown, type WebImage } from "@/lib/parsers/source-parsers/web-parser";
 import { exec } from "child_process";
 import { promisify } from "util";
 import crypto from "crypto";
 
 const execAsync = promisify(exec);
+
+type TranscriptSnippet = {
+    text: string;
+    start: number;
+    duration: number;
+};
 
 const IMAGE_CONTENT_TYPES: Record<string, string> = {
     "image/jpeg": "jpg",
@@ -249,9 +255,9 @@ async function handleYouTubeSource(youtubeUrl: string, userId: string) {
     }
 
     // Fetch transcript using youtube_transcript_api CLI via uv
-    let transcript;
+    let transcript: TranscriptSnippet[] = [];
     try {
-        const { stdout, stderr } = await execAsync(
+        const { stdout } = await execAsync(
             `uv run --with youtube-transcript-api youtube_transcript_api "${videoId}" --languages ru en --format json`,
             {
                 maxBuffer: 10 * 1024 * 1024,
@@ -268,7 +274,7 @@ async function handleYouTubeSource(youtubeUrl: string, userId: string) {
 
         // Parse JSON output - remove outer array wrapper [[...]] -> [...]
         const cleanedOutput = stdout.trim().replace(/^\[\[/, '[').replace(/\]\]$/, ']');
-        transcript = JSON.parse(cleanedOutput);
+        transcript = JSON.parse(cleanedOutput) as TranscriptSnippet[];
     } catch (error) {
         console.error("Error fetching YouTube transcript:", error);
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -317,8 +323,8 @@ async function handleYouTubeSource(youtubeUrl: string, userId: string) {
     }
 
     // Calculate transcript "file size" based on actual transcript content
-    const transcriptText = transcript.map((t: any) => t.text).join(' ');
-    const transcriptSize = Buffer.byteLength(transcriptText, 'utf-8');
+    const transcriptText = transcript.map((t) => t.text).join(" ");
+    const transcriptSize = Buffer.byteLength(transcriptText, "utf-8");
 
     // Create source record
     const source = await prisma.source.create({

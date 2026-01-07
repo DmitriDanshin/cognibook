@@ -3,9 +3,9 @@ import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { readFile } from "fs/promises";
 import path from "path";
-import { getEpubChapterContent } from "@/lib/parsers/epub-parser";
-import { getMarkdownChapterContent } from "@/lib/parsers/markdown-parser";
-import { getChapterContent as getYouTubeChapterContent } from "@/lib/parsers/youtube-parser";
+import { getEpubChapterContent } from "@/lib/parsers/source-parsers/epub-parser";
+import { getMarkdownChapterContent } from "@/lib/parsers/source-parsers/markdown-parser";
+import { getChapterContent as getYouTubeChapterContent } from "@/lib/parsers/source-parsers/youtube-parser";
 import { cache } from "@/lib/cache";
 
 export async function GET(

@@ -302,7 +302,7 @@ export default function QuizzesPage() {
             if (!response.ok) {
                 if (data.details) {
                     setValidationErrors(data.details);
-                    toast.error("Ошибка валидации JSON");
+                    toast.error("Ошибка валидации формата");
                 } else {
                     toast.error(data.error || "Не удалось загрузить тест");
                 }
@@ -331,8 +331,10 @@ export default function QuizzesPage() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        if (!file.name.endsWith(".json")) {
-            toast.error("Поддерживаются только файлы JSON");
+        const lowerName = file.name.toLowerCase();
+        const allowedExtensions = [".json", ".yaml", ".yml"];
+        if (!allowedExtensions.some((ext) => lowerName.endsWith(ext))) {
+            toast.error("Поддерживаются файлы JSON или YAML");
             return;
         }
 
@@ -343,20 +345,13 @@ export default function QuizzesPage() {
 
     const handleTextUpload = async () => {
         if (!jsonText.trim()) {
-            toast.error("Вставьте JSON");
-            return;
-        }
-
-        try {
-            JSON.parse(jsonText);
-        } catch {
-            toast.error("Невалидный JSON");
+            toast.error("Вставьте JSON или YAML");
             return;
         }
 
         const formData = new FormData();
-        const file = new File([jsonText], "quiz.json", {
-            type: "application/json",
+        const file = new File([jsonText], "quiz.yaml", {
+            type: "text/yaml",
         });
         formData.append("file", file);
         await submitQuiz(formData);
@@ -638,10 +633,10 @@ export default function QuizzesPage() {
                             <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto border-border bg-background">
                                 <DialogHeader>
                                     <DialogTitle className="text-foreground">
-                                        Загрузить JSON тест
+                                        Загрузить тест (JSON или YAML)
                                     </DialogTitle>
                                     <DialogDescription className="text-muted-foreground">
-                                        Вставьте готовый JSON или загрузите файл .json дополнительно
+                                        Вставьте готовый JSON или YAML либо загрузите файл .json/.yaml/.yml
                                     </DialogDescription>
                                 </DialogHeader>
                                 <div className="mt-4 space-y-4">
@@ -666,12 +661,12 @@ export default function QuizzesPage() {
 
                                     <div className="space-y-3">
                                         <label className="text-sm font-medium text-foreground">
-                                            JSON теста
+                                            Текст теста (JSON или YAML)
                                         </label>
                                         <Textarea
                                             value={jsonText}
                                             onChange={(e) => setJsonText(e.target.value)}
-                                            placeholder="Вставьте JSON теста сюда"
+                                            placeholder="Вставьте JSON или YAML теста сюда"
                                             className="min-h-40 max-h-60 resize-y overflow-y-auto bg-background text-foreground placeholder:text-muted-foreground"
                                             disabled={uploading}
                                         />
@@ -684,7 +679,7 @@ export default function QuizzesPage() {
                                             {uploading ? "Загрузка..." : "Импортировать из текста"}
                                         </Button>
                                         <p className="text-xs text-muted-foreground">
-                                            Вставьте готовый JSON. Для файлов используйте загрузку ниже.
+                                            Вставьте готовый JSON или YAML. Для файлов используйте загрузку ниже.
                                         </p>
                                     </div>
 
@@ -693,10 +688,10 @@ export default function QuizzesPage() {
                                             <div className="space-y-1">
                                                 <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                                                     <FileJson className="h-4 w-4" />
-                                                    Файл .json
+                                                    Файл .json/.yaml/.yml
                                                 </div>
                                                 <p className="text-xs text-muted-foreground">
-                                                    Поддерживаются файлы только в формате JSON.
+                                                    Поддерживаются файлы JSON или YAML.
                                                 </p>
                                             </div>
                                             <Button
@@ -712,7 +707,7 @@ export default function QuizzesPage() {
                                             <Input
                                                 id="json-upload"
                                                 type="file"
-                                                accept=".json"
+                                                accept=".json,.yaml,.yml"
                                                 className="hidden"
                                                 onChange={handleFileUpload}
                                                 disabled={uploading}
@@ -795,7 +790,7 @@ export default function QuizzesPage() {
 
                                     <details className="rounded-lg border border-border bg-muted/40 p-4">
                                         <summary className="cursor-pointer text-sm font-medium text-foreground">
-                                            Пример структуры JSON
+                                            Пример структуры (JSON или YAML)
                                         </summary>
                                         <pre className="mt-3 overflow-x-auto text-xs text-muted-foreground">
                                             {`{
@@ -837,7 +832,7 @@ export default function QuizzesPage() {
                             Тестов пока нет
                         </h2>
                         <p className="mb-6 text-muted-foreground">
-                            Загрузите свой первый тест в формате JSON
+                            Загрузите свой первый тест в формате JSON или YAML
                         </p>
                         <Button
                             onClick={() => setIsDialogOpen(true)}
