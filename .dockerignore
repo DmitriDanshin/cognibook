@@ -8,5 +8,4 @@ dev.db-journal
 uploads
 .idea
 test-quiz.json
-.env*
 prisma.config.ts
