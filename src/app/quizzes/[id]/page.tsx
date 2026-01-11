@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -71,6 +70,17 @@ interface Quiz {
             id: string;
             title: string;
         };
+        order?: number;
+    } | null;
+    nextChapterQuiz?: {
+        id: string;
+        title: string;
+        chapter: {
+            id: string;
+            title: string;
+            sourceId: string;
+            order: number;
+        } | null;
     } | null;
 }
 
@@ -186,7 +196,7 @@ export default function QuizPage({
         } finally {
             setLoading(false);
         }
-    }, [id]);
+    }, [id, storageKey]);
 
     useEffect(() => {
         fetchQuiz();
@@ -585,6 +595,20 @@ export default function QuizPage({
                                 <RotateCcw className="h-4 w-4" />
                                 Пройти заново
                             </Button>
+                            {quiz.chapter && quiz.nextChapterQuiz && (
+                                <Link
+                                    href={`/quizzes/${quiz.nextChapterQuiz.id}`}
+                                    className="w-full"
+                                >
+                                    <Button
+                                        variant="outline"
+                                        className="w-full gap-2"
+                                    >
+                                        <ArrowRight className="h-4 w-4" />
+                                        Следующий тест
+                                    </Button>
+                                </Link>
+                            )}
                             {quiz.chapter && (
                                 <Link href={`/library/${quiz.chapter.sourceId}?chapterId=${quiz.chapter.id}`} className="w-full">
                                     <Button
@@ -729,7 +753,7 @@ export default function QuizPage({
                                                 className="block text-xs text-foreground underline decoration-muted-foreground/60 underline-offset-2 transition-colors hover:decoration-foreground sm:text-sm"
                                                 title={`Открыть главу: ${quiz?.chapter?.title}`}
                                             >
-                                                "{currentQuestion.quote}"
+                                                &quot;{currentQuestion.quote}&quot;
                                             </Link>
                                         </div>
                                     )}

@@ -134,8 +134,16 @@ export function useChapterActions({
                 document.execCommand("copy");
                 document.body.removeChild(textArea);
             }
-            const chapterWord = getChapterWord(chapterIdsToCopy.length);
-            toast.success(`Скопировано ${chapterIdsToCopy.length} ${chapterWord}`);
+            if (chapterIdsToCopy.length === 1) {
+                const chapterTitle =
+                    chapterLookup.get(chapterIdsToCopy[0])?.title || "глава";
+                toast.success(`Скопировано: ${chapterTitle}`);
+            } else {
+                const chapterWord = getChapterWord(chapterIdsToCopy.length);
+                toast.success(
+                    `Скопировано ${chapterIdsToCopy.length} ${chapterWord}`
+                );
+            }
         } catch {
             toast.error("Не удалось скопировать текст");
         }

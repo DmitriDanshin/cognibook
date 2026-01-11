@@ -40,7 +40,38 @@ export async function GET(
             return NextResponse.json({ error: "Quiz not found" }, { status: 404 });
         }
 
-        return NextResponse.json(quiz);
+        const nextChapterQuiz = quiz.chapter
+            ? await prisma.quiz.findFirst({
+                  where: {
+                      userId: authResult.user.userId,
+                      chapter: {
+                          is: {
+                              sourceId: quiz.chapter.sourceId,
+                              order: { gt: quiz.chapter.order },
+                          },
+                      },
+                  },
+                  orderBy: {
+                      chapter: {
+                          order: "asc",
+                      },
+                  },
+                  select: {
+                      id: true,
+                      title: true,
+                      chapter: {
+                          select: {
+                              id: true,
+                              title: true,
+                              sourceId: true,
+                              order: true,
+                          },
+                      },
+                  },
+              })
+            : null;
+
+        return NextResponse.json({ ...quiz, nextChapterQuiz });
     } catch (error) {
         console.error("Error fetching quiz:", error);
         return NextResponse.json(
