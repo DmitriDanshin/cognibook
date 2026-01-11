@@ -38,6 +38,52 @@ import {
 import { toast } from "sonner";
 import { CoverUploadDialog } from "./components/cover-upload-dialog";
 
+/**
+ * Extract title from markdown content:
+ * 1. Try to find heading (# to ######)
+ * 2. If not found, try bold text (**text** or __text__)
+ * 3. If not found, use first sentence (up to 256 chars)
+ */
+function extractTitleFromContent(content: string): string {
+    const lines = content.split(/\r?\n/);
+
+    // Remove quotes from title
+    const stripQuotes = (s: string) => s.replace(/^["'«»"']+|["'«»"']+$/g, "").trim();
+
+    // Try headings from # to ######
+    for (let level = 1; level <= 6; level++) {
+        const prefix = "#".repeat(level);
+        for (const line of lines) {
+            const trimmed = line.trim();
+            // Match exactly this level (not more #)
+            const regex = new RegExp(`^${prefix}(?!#)\\s+(.+)$`);
+            const match = regex.exec(trimmed);
+            if (match) {
+                return stripQuotes(match[1]).slice(0, 256);
+            }
+        }
+    }
+
+    // Try bold text **text** or __text__
+    const boldMatch = /\*\*([^*]+)\*\*|__([^_]+)__/.exec(content);
+    if (boldMatch) {
+        const boldText = stripQuotes(boldMatch[1] || boldMatch[2]);
+        if (boldText.length > 0) {
+            return boldText.slice(0, 256);
+        }
+    }
+
+    // Use first sentence
+    const text = content.replace(/\s+/g, " ").trim();
+    const sentenceMatch = /^(.+?)[.!?]/.exec(text);
+    if (sentenceMatch) {
+        return stripQuotes(sentenceMatch[1]).slice(0, 256);
+    }
+
+    // Fallback: first 256 characters
+    return stripQuotes(text).slice(0, 256) || "Вставленный текст";
+}
+
 interface Source {
     id: string;
     title: string;
@@ -225,7 +271,7 @@ export default function LibraryPage() {
         setUploading(true);
         const formData = new FormData();
         formData.append("pasteContent", pasteContent);
-        formData.append("pasteTitle", pasteTitle.trim() || "Вставленный текст");
+        formData.append("pasteTitle", pasteTitle.trim() || extractTitleFromContent(pasteContent));
 
         try {
             const response = await fetch("/api/sources", {

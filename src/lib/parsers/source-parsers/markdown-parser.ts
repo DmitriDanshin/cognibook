@@ -170,7 +170,12 @@ export class MarkdownParser extends BaseParser<ParsedMarkdown> {
             if (!match) continue;
 
             const key = match[1].trim().toLowerCase();
-            const value = match[2].trim();
+            // Remove surrounding quotes from YAML values
+            let value = match[2].trim();
+            if ((value.startsWith('"') && value.endsWith('"')) ||
+                (value.startsWith("'") && value.endsWith("'"))) {
+                value = value.slice(1, -1);
+            }
 
             switch (key) {
                 case "title":
