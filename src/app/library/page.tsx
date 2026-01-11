@@ -90,10 +90,10 @@ export default function LibraryPage() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        const allowedExtensions = [".epub", ".md", ".markdown"];
+        const allowedExtensions = [".epub", ".md", ".markdown", ".docx"];
         const lowerName = file.name.toLowerCase();
         if (!allowedExtensions.some((ext) => lowerName.endsWith(ext))) {
-            toast.error("Поддерживаются только файлы EPUB или Markdown");
+            toast.error("Поддерживаются только файлы EPUB, Markdown или Word");
             return;
         }
 
@@ -337,7 +337,7 @@ export default function LibraryPage() {
                             </DialogTrigger>
                             <DialogContent className="flex h-[520px] w-full flex-col border-border bg-background sm:max-w-3xl">
                                 <DialogHeader className="shrink-0">
-                                    <DialogTitle className="text-foreground">   
+                                    <DialogTitle className="text-foreground">
                                         Добавить источник
                                     </DialogTitle>
                                     <DialogDescription className="text-muted-foreground">
@@ -403,7 +403,7 @@ export default function LibraryPage() {
                                             <Input
                                                 id="epub-upload"
                                                 type="file"
-                                                accept=".epub,.md,.markdown"
+                                                accept=".epub,.md,.markdown,.docx"
                                                 className="hidden"
                                                 onChange={handleFileUpload}
                                                 disabled={uploading}

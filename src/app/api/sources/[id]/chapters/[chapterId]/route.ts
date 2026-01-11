@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth";
 import { readFile } from "fs/promises";
 import path from "path";
 import { getEpubChapterContent } from "@/lib/parsers/source-parsers/epub-parser";
+import { getDocxChapterContent } from "@/lib/parsers/source-parsers/docx-parser";
 import { getMarkdownChapterContent } from "@/lib/parsers/source-parsers/markdown-parser";
 import { getChapterContent as getYouTubeChapterContent } from "@/lib/parsers/source-parsers/youtube-parser";
 import { cache } from "@/lib/cache";
@@ -97,6 +98,8 @@ export async function GET(
 
             if (fileExt === ".epub") {
                 content = await getEpubChapterContent(sourceBuffer, chapter.href, id);
+            } else if (fileExt === ".docx") {
+                content = await getDocxChapterContent(sourceBuffer, chapter.href);
             } else if (fileExt === ".md" || fileExt === ".markdown") {
                 content = await getMarkdownChapterContent(sourceBuffer, chapter.href);
             } else {

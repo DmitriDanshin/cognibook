@@ -44,3 +44,7 @@ export type ParsedEpub = ParsedSource<EpubMetadata>;
 export type MarkdownMetadata = SourceMetadata;
 
 export type ParsedMarkdown = ParsedSource<MarkdownMetadata>;
+
+export type DocxMetadata = SourceMetadata;
+
+export type ParsedDocx = ParsedSource<DocxMetadata>;

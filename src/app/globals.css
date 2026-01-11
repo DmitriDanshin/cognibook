@@ -258,3 +258,119 @@
   padding: 0 0.15em;
   border-radius: 0.2em;
 }
+
+/* Table styles */
+.prose table {
+  width: 100%;
+  table-layout: auto;
+  text-align: left;
+  margin-top: 2em;
+  margin-bottom: 2em;
+  border-collapse: collapse;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  font-size: 0.925em;
+}
+
+.prose thead {
+  background: var(--muted);
+  border-bottom: 2px solid var(--border);
+}
+
+.prose thead th {
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+  vertical-align: bottom;
+  color: var(--foreground);
+  text-align: left;
+}
+
+.prose tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background-color 0.15s ease;
+}
+
+.prose tbody tr:last-child {
+  border-bottom: none;
+}
+
+.prose tbody tr:hover {
+  background: var(--muted);
+}
+
+.prose tbody td {
+  padding: 0.75rem 1rem;
+  vertical-align: top;
+}
+
+.prose tfoot {
+  background: var(--muted);
+  border-top: 2px solid var(--border);
+}
+
+.prose tfoot td,
+.prose tfoot th {
+  font-weight: 500;
+  padding: 0.75rem 1rem;
+}
+
+/* Responsive table wrapper */
+.prose .table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 2em 0;
+}
+
+.prose .table-wrapper table {
+  margin: 0;
+}
+
+/* Alternative: bordered table style */
+.prose table.bordered,
+.prose table {
+  border: 1px solid var(--border);
+}
+
+.prose table.bordered th,
+.prose table.bordered td,
+.prose table th,
+.prose table td {
+  border: 1px solid var(--border);
+}
+
+/* Striped rows */
+.prose table.striped tbody tr:nth-child(even) {
+  background: var(--muted);
+}
+
+.prose table.striped tbody tr:nth-child(even):hover {
+  background: var(--accent);
+}
+
+/* Compact table variant */
+.prose table.compact th,
+.prose table.compact td {
+  padding: 0.5rem 0.75rem;
+}
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  .prose table {
+    font-size: 0.85em;
+  }
+  
+  .prose thead th,
+  .prose tbody td,
+  .prose tfoot td,
+  .prose tfoot th {
+    padding: 0.5rem 0.625rem;
+  }
+}
+
+/* Code in tables */
+.prose table code {
+  font-size: 0.875em;
+  background: var(--muted);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+}

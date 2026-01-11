@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     template: `%s | ${APP_NAME}`,
   },
   description: APP_DESCRIPTION,
-  keywords: ["epub", "markdown", "тесты", "обучение", "quiz", "книги", "pwa"],
+  keywords: ["epub", "markdown", "word", "docx", "тесты", "обучение", "quiz", "книги", "pwa"],
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

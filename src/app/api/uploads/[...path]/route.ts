@@ -34,6 +34,7 @@ export async function GET(
         const ext = path.extname(resolvedPath).toLowerCase();
         const contentTypes: Record<string, string> = {
             ".epub": "application/epub+zip",
+            ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             ".jpg": "image/jpeg",
             ".jpeg": "image/jpeg",
             ".png": "image/png",

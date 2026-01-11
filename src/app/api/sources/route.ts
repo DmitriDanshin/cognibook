@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth";
 import { writeFile, mkdir, readFile } from "fs/promises";
 import path from "path";
 import { parseEpubFile, TocItem } from "@/lib/parsers/source-parsers/epub-parser";
+import { parseDocxFile } from "@/lib/parsers/source-parsers/docx-parser";
 import { parseMarkdownFile } from "@/lib/parsers/source-parsers/markdown-parser";
 import { parseYouTubeTranscript } from "@/lib/parsers/source-parsers/youtube-parser";
 import { parseWebPageToMarkdown, type WebImage } from "@/lib/parsers/source-parsers/web-parser";
@@ -232,7 +233,7 @@ async function createChapters(
 /**
  * Handle adding a YouTube source
  */
-async function handleYouTubeSource(youtubeUrl: string, userId: string) {        
+async function handleYouTubeSource(youtubeUrl: string, userId: string) {
     // Extract video ID
     const videoId = extractYouTubeVideoId(youtubeUrl);
     if (!videoId) {
@@ -724,11 +725,11 @@ export async function POST(request: NextRequest) {
 
         const originalExt = path.extname(file.name);
         const fileExt = originalExt.toLowerCase();
-        const allowedExtensions = new Set([".epub", ".md", ".markdown"]);
+        const allowedExtensions = new Set([".epub", ".md", ".markdown", ".docx"]);
 
         if (!allowedExtensions.has(fileExt)) {
             return NextResponse.json(
-                { error: "Only EPUB or Markdown files are supported" },
+                { error: "Only EPUB, Markdown, or Word files are supported" },
                 { status: 400 }
             );
         }
@@ -824,6 +825,11 @@ export async function POST(request: NextRequest) {
                     await writeFile(coverFilePath, parsed.coverBuffer);
                     coverPath = `/uploads/sources/${coverFileName}`;
                 }
+            } else if (fileExt === ".docx") {
+                const parsed = await parseDocxFile(buffer);
+                title = parsed.metadata.title || title;
+                author = parsed.metadata.author;
+                tocItems = parsed.toc;
             } else {
                 const parsed = await parseMarkdownFile(buffer);
                 title = parsed.metadata.title || title;
