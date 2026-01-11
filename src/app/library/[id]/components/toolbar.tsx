@@ -58,7 +58,10 @@ export function Toolbar({
                         </Button>
                     </Link>
                 )}
-                <h1 className="hidden line-clamp-1 text-base font-medium text-foreground sm:block sm:text-lg">
+                <h1
+                    className="hidden min-w-0 flex-1 truncate text-base font-medium text-foreground sm:block sm:text-lg"
+                    title={selectedChapter?.title || "Выберите главу"}
+                >
                     {selectedChapter?.title || "Выберите главу"}
                 </h1>
             </div>

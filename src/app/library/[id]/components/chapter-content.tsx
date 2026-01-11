@@ -30,7 +30,9 @@ export const ChapterContent = memo(function ChapterContent({
                                     data-chapter-id={chapter.id}
                                     className="scroll-mt-24"
                                 >
-                                    <h2 className={index === 0 ? "mt-0" : "mt-8"}>
+                                    <h2
+                                        className={`${index === 0 ? "mt-0" : "mt-8"} chapter-title`}
+                                    >
                                         {chapter.title}
                                     </h2>
                                     {chapterHtml === undefined ? (
