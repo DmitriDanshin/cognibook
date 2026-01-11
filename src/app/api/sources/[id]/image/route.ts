@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
-import { readFile } from "fs/promises";
 import path from "path";
 import JSZip from "jszip";
 import { IMAGE_MIME_BY_EXTENSION } from "@/lib/mime";
+import { storage } from "@/lib/storage";
 
 const MIME_TYPES = IMAGE_MIME_BY_EXTENSION;
 
@@ -40,9 +40,13 @@ export async function GET(
             return NextResponse.json({ error: "This source type does not support images" }, { status: 400 });
         }
 
+        const storageKey = storage.resolveKeyFromPath(source.filePath);
+        if (!storageKey) {
+            return NextResponse.json({ error: "Invalid source file path" }, { status: 500 });
+        }
+
         // Read EPUB file
-        const epubPath = path.join(process.cwd(), source.filePath);
-        const epubBuffer = await readFile(epubPath);
+        const epubBuffer = await storage.read(storageKey);
 
         // Open EPUB as ZIP
         const zip = await JSZip.loadAsync(epubBuffer);

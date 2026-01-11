@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
-import { readFile } from "fs/promises";
 import path from "path";
 import { getEpubChapterContent } from "@/lib/parsers/source-parsers/epub-parser";
 import { getDocxChapterContent } from "@/lib/parsers/source-parsers/docx-parser";
 import { getMarkdownChapterContent } from "@/lib/parsers/source-parsers/markdown-parser";
 import { getChapterContent as getYouTubeChapterContent } from "@/lib/parsers/source-parsers/youtube-parser";
 import { cache } from "@/lib/cache";
+import { storage } from "@/lib/storage";
 
 export async function GET(
     request: NextRequest,
@@ -65,16 +65,11 @@ export async function GET(
         // Handle YouTube sources
         if (source.sourceType === "youtube" && source.youtubeVideoId) {
             // Load transcript from JSON file
-            const transcriptPath = path.join(
-                process.cwd(),
-                "uploads",
-                "transcripts",
-                `${source.youtubeVideoId}.json`
-            );
+            const transcriptKey = `transcripts/${source.youtubeVideoId}.json`;
 
             try {
-                const transcriptBuffer = await readFile(transcriptPath, "utf-8");
-                const transcript = JSON.parse(transcriptBuffer);
+                const transcriptBuffer = await storage.read(transcriptKey);
+                const transcript = JSON.parse(transcriptBuffer.toString("utf-8"));
                 content = getYouTubeChapterContent(transcript, chapter.href);
             } catch (error) {
                 console.error("Error loading YouTube transcript:", error);
@@ -89,8 +84,14 @@ export async function GET(
             const bufferCacheKey = `buffer:${id}`;
             let sourceBuffer = cache.get(bufferCacheKey) as Buffer | undefined;
             if (!sourceBuffer) {
-                const sourcePath = path.join(process.cwd(), source.filePath);
-                sourceBuffer = await readFile(sourcePath);
+                const sourceKey = storage.resolveKeyFromPath(source.filePath);
+                if (!sourceKey) {
+                    return NextResponse.json(
+                        { error: "Invalid source file path" },
+                        { status: 500 }
+                    );
+                }
+                sourceBuffer = await storage.read(sourceKey);
                 cache.set(bufferCacheKey, sourceBuffer);
             }
 

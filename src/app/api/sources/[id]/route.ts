@@ -1,8 +1,57 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
-import { unlink } from "fs/promises";
+import { storage } from "@/lib/storage";
 import path from "path";
+
+const isStorageReference = (value: string): boolean => {
+    const trimmed = value.trim();
+    if (!trimmed) return false;
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+        try {
+            const { pathname } = new URL(trimmed);
+            return (
+                pathname.startsWith("/uploads/") ||
+                pathname.startsWith("/api/uploads/")
+            );
+        } catch {
+            return false;
+        }
+    }
+
+    return (
+        trimmed.startsWith("/uploads/") ||
+        trimmed.startsWith("/api/uploads/") ||
+        trimmed.startsWith("uploads/") ||
+        trimmed.startsWith("api/uploads/")
+    );
+};
+
+const extractLocalAssetKeys = (markdown: string): Set<string> => {
+    const urls = new Set<string>();
+    const markdownImageRegex = /!\[[^\]]*]\(([^)]+)\)/g;
+    const htmlImageRegex = /<img[^>]+src=["']([^"']+)["']/gi;
+    let match: RegExpExecArray | null;
+
+    while ((match = markdownImageRegex.exec(markdown)) !== null) {
+        urls.add(match[1].trim());
+    }
+
+    while ((match = htmlImageRegex.exec(markdown)) !== null) {
+        urls.add(match[1].trim());
+    }
+
+    const keys = new Set<string>();
+    for (const url of urls) {
+        if (!isStorageReference(url)) continue;
+        const key = storage.resolveKeyFromPath(url);
+        if (key) {
+            keys.add(key);
+        }
+    }
+
+    return keys;
+};
 
 export async function GET(
     request: NextRequest,
@@ -104,14 +153,49 @@ export async function DELETE(
             return NextResponse.json({ error: "Source not found" }, { status: 404 });
         }
 
-        // Delete file from filesystem
+        const keysToDelete = new Set<string>();
+        const fileExt = source.filePath
+            ? path.extname(source.filePath).toLowerCase()
+            : null;
+
         if (source.filePath) {
-            const fullPath = path.join(process.cwd(), source.filePath);
-            try {
-                await unlink(fullPath);
-            } catch {
-                // File may not exist, continue with database deletion
+            const storageKey = storage.resolveKeyFromPath(source.filePath);
+            if (storageKey) {
+                keysToDelete.add(storageKey);
             }
+
+            const isMarkdown =
+                fileExt === ".md" ||
+                fileExt === ".markdown" ||
+                source.sourceType === "web" ||
+                source.sourceType === "markdown" ||
+                source.sourceType === "paste";
+
+            if (isMarkdown && storageKey) {
+                try {
+                    const markdownBuffer = await storage.read(storageKey);
+                    const markdown = markdownBuffer.toString("utf-8");
+                    const assetKeys = extractLocalAssetKeys(markdown);
+                    assetKeys.forEach((key) => keysToDelete.add(key));
+                } catch {
+                    // Ignore missing or unreadable markdown
+                }
+            }
+        }
+
+        if (source.coverPath) {
+            const coverKey = storage.resolveKeyFromPath(source.coverPath);
+            if (coverKey) {
+                keysToDelete.add(coverKey);
+            }
+        }
+
+        if (source.sourceType === "youtube" && source.youtubeVideoId) {
+            keysToDelete.add(`transcripts/${source.youtubeVideoId}.json`);
+        }
+
+        for (const key of keysToDelete) {
+            await storage.delete(key, { ignoreErrors: true });
         }
 
         // Delete from database (cascades to chapters and reading progress)

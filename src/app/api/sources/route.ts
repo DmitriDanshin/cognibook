@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
-import { writeFile, mkdir, readFile } from "fs/promises";
 import path from "path";
 import { parseEpubFile, TocItem } from "@/lib/parsers/source-parsers/epub-parser";
 import { parseDocxFile } from "@/lib/parsers/source-parsers/docx-parser";
@@ -13,6 +12,7 @@ import { promisify } from "util";
 import crypto from "crypto";
 import { SOURCE_FILE_EXTENSIONS, SOURCE_TYPE_BY_EXTENSION } from "@/lib/constants";
 import { IMAGE_EXTENSION_BY_MIME } from "@/lib/mime";
+import { storage } from "@/lib/storage";
 
 const execAsync = promisify(exec);
 
@@ -114,7 +114,6 @@ const fetchImageBuffer = async (
 
 const downloadWebImages = async (
     images: WebImage[],
-    uploadsDir: string,
     prefix: string
 ): Promise<Map<string, string>> => {
     const replacements = new Map<string, string>();
@@ -135,10 +134,10 @@ const downloadWebImages = async (
         }
 
         const fileName = `${prefix}-${downloaded + 1}.${result.ext}`;
-        const filePath = path.join(uploadsDir, fileName);
-        await writeFile(filePath, result.buffer);
+        const storageKey = `sources/${fileName}`;
+        await storage.save(storageKey, result.buffer);
 
-        replacements.set(image.url, `/api/uploads/sources/${fileName}`);
+        replacements.set(image.url, storage.getPublicUrl(storageKey));
         totalBytes += result.buffer.length;
         downloaded += 1;
     }
@@ -309,14 +308,10 @@ async function handleYouTubeSource(youtubeUrl: string, userId: string) {
                     await thumbnailResponse.arrayBuffer()
                 );
 
-                // Ensure uploads/sources directory exists
-                const uploadsDir = path.join(process.cwd(), "uploads", "sources");
-                await mkdir(uploadsDir, { recursive: true });
-
                 const thumbnailFileName = `${videoId}-thumb.jpg`;
-                const thumbnailPath = path.join(uploadsDir, thumbnailFileName);
-                await writeFile(thumbnailPath, thumbnailBuffer);
-                coverPath = `/uploads/sources/${thumbnailFileName}`;
+                const thumbnailKey = `sources/${thumbnailFileName}`;
+                await storage.save(thumbnailKey, thumbnailBuffer);
+                coverPath = storage.getPublicPath(thumbnailKey);
             }
         } catch (error) {
             console.warn("Failed to download YouTube thumbnail:", error);
@@ -346,14 +341,11 @@ async function handleYouTubeSource(youtubeUrl: string, userId: string) {
     }
 
     // Store full transcript as JSON in a file
-    const transcriptDir = path.join(process.cwd(), "uploads", "transcripts");
-    await mkdir(transcriptDir, { recursive: true });
-
     const transcriptFileName = `${videoId}.json`;
-    const transcriptFilePath = path.join(transcriptDir, transcriptFileName);
-    await writeFile(
-        transcriptFilePath,
-        JSON.stringify(parsed.fullTranscript, null, 2)
+    const transcriptKey = `transcripts/${transcriptFileName}`;
+    await storage.save(
+        transcriptKey,
+        Buffer.from(JSON.stringify(parsed.fullTranscript, null, 2), "utf-8")
     );
 
     // Fetch source with chapters for response
@@ -472,9 +464,6 @@ async function handleWebSource(webUrl: string, userId: string) {
         );
     }
 
-    const uploadsDir = path.join(process.cwd(), "uploads", "sources");
-    await mkdir(uploadsDir, { recursive: true });
-
     const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     let coverPath: string | null = null;
 
@@ -482,9 +471,9 @@ async function handleWebSource(webUrl: string, userId: string) {
         const coverResult = await fetchImageBuffer(parsed.coverUrl);
         if (coverResult) {
             const coverFileName = `${uniqueId}-cover.${coverResult.ext}`;
-            const coverFilePath = path.join(uploadsDir, coverFileName);
-            await writeFile(coverFilePath, coverResult.buffer);
-            coverPath = `/uploads/sources/${coverFileName}`;
+            const coverKey = `sources/${coverFileName}`;
+            await storage.save(coverKey, coverResult.buffer);
+            coverPath = storage.getPublicPath(coverKey);
         }
     }
 
@@ -492,7 +481,6 @@ async function handleWebSource(webUrl: string, userId: string) {
     if (parsed.images.length > 0) {
         const replacements = await downloadWebImages(
             parsed.images,
-            uploadsDir,
             `${uniqueId}-img`
         );
         markdown = rewriteMarkdownImages(markdown, replacements);
@@ -500,8 +488,8 @@ async function handleWebSource(webUrl: string, userId: string) {
 
     const markdownBuffer = Buffer.from(markdown, "utf-8");
     const fileName = `${uniqueId}.md`;
-    const filePath = path.join(uploadsDir, fileName);
-    await writeFile(filePath, markdownBuffer);
+    const fileKey = `sources/${fileName}`;
+    await storage.save(fileKey, markdownBuffer);
 
     let title = parsed.title || parsedUrl.hostname || "Web page";
     let author = parsed.author;
@@ -525,7 +513,7 @@ async function handleWebSource(webUrl: string, userId: string) {
             title,
             author,
             coverPath,
-            filePath: `/uploads/sources/${fileName}`,
+            filePath: storage.getPublicPath(fileKey),
             fileHash,
             fileSize: markdownBuffer.length,
             sourceType: "web",
@@ -589,14 +577,10 @@ ${content}`;
         );
     }
 
-    // Create directory and save file
-    const uploadsDir = path.join(process.cwd(), "uploads", "sources");
-    await mkdir(uploadsDir, { recursive: true });
-
     const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     const fileName = `${uniqueId}.md`;
-    const filePath = path.join(uploadsDir, fileName);
-    await writeFile(filePath, markdownBuffer);
+    const fileKey = `sources/${fileName}`;
+    await storage.save(fileKey, markdownBuffer);
 
     // Parse markdown to extract ToC
     let parsedTitle = title;
@@ -620,7 +604,7 @@ ${content}`;
             title: parsedTitle,
             author,
             coverPath: null,
-            filePath: `/uploads/sources/${fileName}`,
+            filePath: storage.getPublicPath(fileKey),
             fileHash,
             fileSize: markdownBuffer.length,
             sourceType: "markdown",
@@ -735,14 +719,10 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Create uploads directory if it doesn't exist
-        const uploadsDir = path.join(process.cwd(), "uploads", "sources");
-        await mkdir(uploadsDir, { recursive: true });
-
         // Generate unique filename
         const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
         const fileName = `${uniqueId}${fileExt}`;
-        const filePath = path.join(uploadsDir, fileName);
+        const fileKey = `sources/${fileName}`;
 
         // Save file
         const bytes = await file.arrayBuffer();
@@ -773,8 +753,9 @@ export async function POST(request: NextRequest) {
         for (const candidate of hashCandidates) {
             try {
                 // filePath is guaranteed to be non-null due to the query filter
-                const candidatePath = path.join(process.cwd(), candidate.filePath!);
-                const candidateBuffer = await readFile(candidatePath);
+                const candidateKey = storage.resolveKeyFromPath(candidate.filePath);
+                if (!candidateKey) continue;
+                const candidateBuffer = await storage.read(candidateKey);
                 const candidateHash = crypto
                     .createHash("sha256")
                     .update(candidateBuffer)
@@ -803,7 +784,7 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        await writeFile(filePath, buffer);
+        await storage.save(fileKey, buffer);
 
         // Parse file
         let title = path.basename(file.name, originalExt);
@@ -822,9 +803,9 @@ export async function POST(request: NextRequest) {
                 if (parsed.coverBuffer && parsed.coverMimeType) {
                     const coverExt = parsed.coverMimeType.split("/")[1] || "jpg";
                     const coverFileName = `${uniqueId}-cover.${coverExt}`;
-                    const coverFilePath = path.join(uploadsDir, coverFileName);
-                    await writeFile(coverFilePath, parsed.coverBuffer);
-                    coverPath = `/uploads/sources/${coverFileName}`;
+                    const coverKey = `sources/${coverFileName}`;
+                    await storage.save(coverKey, parsed.coverBuffer);
+                    coverPath = storage.getPublicPath(coverKey);
                 }
             } else if (fileExt === ".docx") {
                 const parsed = await parseDocxFile(buffer);
@@ -848,7 +829,7 @@ export async function POST(request: NextRequest) {
                 title,
                 author,
                 coverPath,
-                filePath: `/uploads/sources/${fileName}`,
+                filePath: storage.getPublicPath(fileKey),
                 fileHash,
                 fileSize: file.size,
                 sourceType,

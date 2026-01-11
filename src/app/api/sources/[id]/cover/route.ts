@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
-import { mkdir, unlink, writeFile } from "fs/promises";
-import path from "path";
 import { IMAGE_EXTENSION_BY_MIME } from "@/lib/mime";
+import { storage } from "@/lib/storage";
 
 const ALLOWED_TYPES = IMAGE_EXTENSION_BY_MIME;
 
@@ -40,27 +39,17 @@ export async function POST(
             return NextResponse.json({ error: "Source not found" }, { status: 404 });
         }
 
-        const uploadsDir = path.join(process.cwd(), "uploads", "sources");
-        await mkdir(uploadsDir, { recursive: true });
-
         const buffer = Buffer.from(await file.arrayBuffer());
         const fileName = `${id}-cover-${Date.now()}.${ext}`;
-        const filePath = path.join(uploadsDir, fileName);
-        await writeFile(filePath, buffer);
+        const storageKey = `sources/${fileName}`;
+        await storage.save(storageKey, buffer);
 
-        if (source.coverPath?.startsWith("/uploads/sources/")) {
-            const previousPath = path.join(
-                process.cwd(),
-                source.coverPath.replace(/^\/+/, "")
-            );
-            try {
-                await unlink(previousPath);
-            } catch {
-                // Ignore cleanup errors
-            }
+        const previousKey = storage.resolveKeyFromPath(source.coverPath);
+        if (previousKey) {
+            await storage.delete(previousKey, { ignoreErrors: true });
         }
 
-        const coverPath = `/uploads/sources/${fileName}`;
+        const coverPath = storage.getPublicPath(storageKey);
         await prisma.source.update({
             where: { id },
             data: { coverPath },

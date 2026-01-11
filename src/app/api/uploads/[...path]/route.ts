@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFile, stat } from "fs/promises";
 import path from "path";
 import { UPLOAD_CONTENT_TYPES } from "@/lib/mime";
+import { storage } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -11,28 +11,21 @@ export async function GET(
 ) {
     try {
         const { path: pathSegments } = await params;
-        const filePath = path.join(process.cwd(), "uploads", ...pathSegments);
-
-        // Security check: ensure the path is within uploads directory
-        const uploadsDir = path.join(process.cwd(), "uploads");
-        const resolvedPath = path.resolve(filePath);
-
-        if (!resolvedPath.startsWith(uploadsDir)) {
+        const storageKey = storage.resolveKeyFromPath(pathSegments.join("/"));
+        if (!storageKey) {
             return NextResponse.json({ error: "Access denied" }, { status: 403 });
         }
 
         // Check if file exists
-        try {
-            await stat(resolvedPath);
-        } catch {
+        if (!(await storage.exists(storageKey))) {
             return NextResponse.json({ error: "File not found" }, { status: 404 });
         }
 
         // Read file
-        const fileBuffer = await readFile(resolvedPath);
+        const fileBuffer = await storage.read(storageKey);
 
         // Determine content type
-        const ext = path.extname(resolvedPath).toLowerCase();
+        const ext = path.extname(storageKey).toLowerCase();
         const contentType = UPLOAD_CONTENT_TYPES[ext] || "application/octet-stream";
 
         return new NextResponse(fileBuffer, {
