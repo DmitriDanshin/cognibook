@@ -65,34 +65,33 @@ export function Sidebar({
         if (hasChildren) {
             return (
                 <AccordionItem key={chapter.id} value={chapter.id} className="border-0">
-                    <AccordionTrigger
-                        className={`px-4 py-2 text-sm hover:bg-foreground/5 hover:no-underline ${isSelected ? "bg-foreground/10 text-foreground" : "text-muted-foreground"
+                    <div
+                        className={`flex items-center hover:bg-foreground/5 ${isSelected ? "bg-foreground/10 text-foreground" : "text-muted-foreground"
                             }`}
                         style={{ paddingLeft: `${level * 16 + 16}px` }}
                     >
-                        <span
-                            className="flex flex-1 items-center gap-2"
+                        {isMultiSelectMode && (
+                            <Checkbox
+                                checked={isChecked}
+                                onCheckedChange={(checked) => onChapterCheckboxChange(chapter.id, checked === true)}
+                                className="h-4 w-4 flex-shrink-0 mr-2"
+                            />
+                        )}
+                        <AccordionTrigger
+                            className="flex-1 px-0 py-2 text-sm hover:bg-transparent hover:no-underline"
                             onClick={(event) => {
-                                event.stopPropagation();
-                                if (isMultiSelectMode) {
-                                    onChapterCheckboxChange(chapter.id, !isChecked);
-                                } else {
+                                if (!isMultiSelectMode) {
+                                    event.preventDefault();
                                     onChapterSelect(chapter);
                                 }
                             }}
                         >
-                            {isMultiSelectMode && (
-                                <Checkbox
-                                    checked={isChecked}
-                                    onClick={(e) => e.stopPropagation()}
-                                    onCheckedChange={(checked) => onChapterCheckboxChange(chapter.id, checked === true)}
-                                    className="h-4 w-4 flex-shrink-0"
-                                />
-                            )}
-                            {chapter.title}
-                            {renderQuizStatusIcon(chapter.quizStatus)}
-                        </span>
-                    </AccordionTrigger>
+                            <span className="flex flex-1 items-center gap-2">
+                                {chapter.title}
+                                {renderQuizStatusIcon(chapter.quizStatus)}
+                            </span>
+                        </AccordionTrigger>
+                    </div>
                     <AccordionContent className="pb-0">
                         {chapter.children!.map((child) =>
                             renderChapterItem(child, level + 1)
@@ -103,8 +102,10 @@ export function Sidebar({
         }
 
         return (
-            <button
+            <div
                 key={chapter.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => {
                     if (isMultiSelectMode) {
                         onChapterCheckboxChange(chapter.id, !isChecked);
@@ -112,7 +113,17 @@ export function Sidebar({
                         onChapterSelect(chapter);
                     }
                 }}
-                className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors hover:bg-foreground/5 ${isSelected
+                onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        if (isMultiSelectMode) {
+                            onChapterCheckboxChange(chapter.id, !isChecked);
+                        } else {
+                            onChapterSelect(chapter);
+                        }
+                    }
+                }}
+                className={`flex w-full cursor-pointer items-center gap-2 px-4 py-2 text-left text-sm transition-colors hover:bg-foreground/5 ${isSelected
                     ? "bg-foreground/10 text-foreground"
                     : "text-muted-foreground hover:text-foreground"
                     } ${isChecked ? "bg-primary/10" : ""}`}
@@ -128,7 +139,7 @@ export function Sidebar({
                 ) : null}
                 <span className="line-clamp-1 flex-1">{chapter.title}</span>
                 {renderQuizStatusIcon(chapter.quizStatus)}
-            </button>
+            </div>
         );
     };
 

@@ -40,7 +40,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { QUIZ_IMPORT_EXTENSIONS } from "@/lib/constants";
-import { formatDateRuShort } from "@/lib/format";
+import { formatDateRuShort } from "@/lib/utils/format";
 
 interface Quiz {
     id: string;

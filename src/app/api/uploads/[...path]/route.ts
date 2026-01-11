@@ -23,12 +23,13 @@ export async function GET(
 
         // Read file
         const fileBuffer = await storage.read(storageKey);
+        const responseBody = new Uint8Array(fileBuffer);
 
         // Determine content type
         const ext = path.extname(storageKey).toLowerCase();
         const contentType = UPLOAD_CONTENT_TYPES[ext] || "application/octet-stream";
 
-        return new NextResponse(fileBuffer, {
+        return new NextResponse(responseBody, {
             headers: {
                 "Content-Type": contentType,
                 "Cache-Control": "public, max-age=31536000",

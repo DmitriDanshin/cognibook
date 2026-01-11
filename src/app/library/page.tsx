@@ -40,7 +40,7 @@ import {
 import { toast } from "sonner";
 import { CoverUploadDialog } from "./components/cover-upload-dialog";
 import { SOURCE_FILE_EXTENSIONS, SOURCE_TYPE_LABELS } from "@/lib/constants";
-import { formatDateRuShort, formatFileSizeMb } from "@/lib/format";
+import { formatDateRuShort, formatFileSizeMb } from "@/lib/utils/format";
 
 /**
  * Extract title from markdown content:
