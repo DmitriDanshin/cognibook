@@ -19,6 +19,7 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
     BookOpen,
@@ -30,6 +31,8 @@ import {
     HardDrive,
     Youtube,
     Globe,
+    ClipboardPaste,
+    Maximize2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -50,11 +53,14 @@ export default function LibraryPage() {
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [sourceType, setSourceType] = useState<"file" | "youtube" | "web">(
+    const [isPasteFullscreen, setIsPasteFullscreen] = useState(false);
+    const [sourceType, setSourceType] = useState<"file" | "youtube" | "web" | "paste">(
         "file"
     );
     const [youtubeUrl, setYoutubeUrl] = useState("");
     const [webUrl, setWebUrl] = useState("");
+    const [pasteTitle, setPasteTitle] = useState("");
+    const [pasteContent, setPasteContent] = useState("");
 
     const fetchSources = useCallback(async () => {
         try {
@@ -204,6 +210,52 @@ export default function LibraryPage() {
         }
     };
 
+    const handlePasteSubmit = async () => {
+        if (!pasteContent.trim()) {
+            toast.error("Введите текст");
+            return;
+        }
+
+        setUploading(true);
+        const formData = new FormData();
+        formData.append("pasteContent", pasteContent);
+        formData.append("pasteTitle", pasteTitle.trim() || "Вставленный текст");
+
+        try {
+            const response = await fetch("/api/sources", {
+                method: "POST",
+                body: formData,
+            });
+
+            const data = await response.json().catch(() => null);
+
+            if (!response.ok) {
+                if (response.status === 409) {
+                    toast.info("Текст уже добавлен");
+                    setIsDialogOpen(false);
+                    setPasteTitle("");
+                    setPasteContent("");
+                    fetchSources();
+                    return;
+                }
+                throw new Error(data?.error || "Failed to add text");
+            }
+
+            toast.success("Текст успешно добавлен");
+            setIsDialogOpen(false);
+            setPasteTitle("");
+            setPasteContent("");
+            fetchSources();
+        } catch (error) {
+            console.error("Error adding paste source:", error);
+            const errorMessage =
+                error instanceof Error ? error.message : "Не удалось добавить текст";
+            toast.error(errorMessage);
+        } finally {
+            setUploading(false);
+        }
+    };
+
     const handleDelete = async (id: string, title: string) => {
         if (!confirm(`Удалить источник "${title}"?`)) return;
 
@@ -269,16 +321,16 @@ export default function LibraryPage() {
                                     Загрузить
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent className="border-border bg-background">
-                                <DialogHeader>
+                            <DialogContent className="flex h-[520px] w-full flex-col border-border bg-background sm:max-w-3xl">
+                                <DialogHeader className="shrink-0">
                                     <DialogTitle className="text-foreground">   
                                         Добавить источник
                                     </DialogTitle>
                                     <DialogDescription className="text-muted-foreground">
-                                        Загрузите файл, добавьте YouTube видео или страницу сайта
+                                        Загрузите файл, добавьте YouTube видео, страницу сайта или вставьте текст
                                     </DialogDescription>
                                 </DialogHeader>
-                                <div className="mt-4">
+                                <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
                                     {/* Source Type Selector */}
                                     <div className="mb-4 flex gap-2">
                                         <Button
@@ -307,6 +359,15 @@ export default function LibraryPage() {
                                         >
                                             <Globe className="h-4 w-4" />
                                             Сайт
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant={sourceType === "paste" ? "default" : "outline"}
+                                            className="flex-1 gap-2"
+                                            onClick={() => setSourceType("paste")}
+                                        >
+                                            <ClipboardPaste className="h-4 w-4" />
+                                            Текст
                                         </Button>
                                     </div>
 
@@ -393,6 +454,79 @@ export default function LibraryPage() {
                                             </Button>
                                         </div>
                                     )}
+
+                                    {/* Paste Text */}
+                                    {sourceType === "paste" && (
+                                        <div className="space-y-4">
+                                            <div className="flex flex-col rounded-xl border-2 border-dashed border-border bg-muted/40 p-4">
+                                                <div className="mb-3 flex items-center gap-3">
+                                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-foreground">
+                                                        <ClipboardPaste className="h-5 w-5" />
+                                                    </div>
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="Заголовок (необязательно)"
+                                                        value={pasteTitle}
+                                                        onChange={(e) => setPasteTitle(e.target.value)}
+                                                        disabled={uploading}
+                                                        className="flex-1"
+                                                    />
+                                                </div>
+                                                <div className="relative">
+                                                    <Textarea
+                                                        placeholder="Вставьте текст здесь... (поддерживается Markdown)"
+                                                        value={pasteContent}
+                                                        onChange={(e) => setPasteContent(e.target.value)}
+                                                        disabled={uploading}
+                                                        className="h-[180px] resize-none pr-12 pb-10"
+                                                    />
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="icon"
+                                                        onClick={() => setIsPasteFullscreen(true)}
+                                                        disabled={uploading}
+                                                        aria-label="Развернуть редактор"
+                                                        className="absolute bottom-2 right-2 z-10 h-8 w-8"
+                                                    >
+                                                        <Maximize2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                            <Button
+                                                onClick={handlePasteSubmit}
+                                                disabled={uploading || !pasteContent.trim()}
+                                                className="w-full"
+                                            >
+                                                {uploading ? "Добавление..." : "Добавить текст"}
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+                            </DialogContent>
+                        </Dialog>
+                        <Dialog open={isPasteFullscreen} onOpenChange={setIsPasteFullscreen}>
+                            <DialogContent showCloseButton={false} className="flex !h-[80vh] !w-[80vw] max-w-none sm:max-w-none flex-col border-border bg-background p-4">
+                                <DialogHeader className="sr-only">
+                                    <DialogTitle>Редактировать текст</DialogTitle>
+                                </DialogHeader>
+                                <div className="relative flex-1">
+                                    <Textarea
+                                        placeholder="Вставьте текст здесь... (поддерживается Markdown)"
+                                        value={pasteContent}
+                                        onChange={(e) => setPasteContent(e.target.value)}
+                                        disabled={uploading}
+                                        className="h-full resize-none pr-12 pb-10"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => setIsPasteFullscreen(false)}
+                                        disabled={uploading}
+                                        className="absolute bottom-3 right-3 z-10"
+                                    >
+                                        Закрыть
+                                    </Button>
                                 </div>
                             </DialogContent>
                         </Dialog>

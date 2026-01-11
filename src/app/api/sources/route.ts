@@ -548,6 +548,103 @@ async function handleWebSource(webUrl: string, userId: string) {
     return NextResponse.json(sourceWithChapters, { status: 201 });
 }
 
+/**
+ * Handle adding a pasted text source
+ */
+async function handlePasteSource(content: string, title: string, userId: string) {
+    if (!content.trim()) {
+        return NextResponse.json(
+            { error: "Текст не может быть пустым" },
+            { status: 400 }
+        );
+    }
+
+    // Create markdown content with frontmatter
+    const timestamp = new Date().toISOString();
+    const markdownContent = `---
+title: "${title.replace(/"/g, '\\"')}"
+created: ${timestamp}
+---
+
+${content}`;
+
+    const markdownBuffer = Buffer.from(markdownContent, "utf-8");
+
+    // Calculate hash for duplicate detection
+    const fileHash = crypto
+        .createHash("sha256")
+        .update(markdownBuffer)
+        .digest("hex");
+
+    // Check for duplicate by hash
+    const existingByHash = await prisma.source.findFirst({
+        where: { fileHash, userId },
+    });
+
+    if (existingByHash) {
+        return NextResponse.json(
+            { error: "Такой текст уже добавлен", source: existingByHash },
+            { status: 409 }
+        );
+    }
+
+    // Create directory and save file
+    const uploadsDir = path.join(process.cwd(), "uploads", "sources");
+    await mkdir(uploadsDir, { recursive: true });
+
+    const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const fileName = `${uniqueId}.md`;
+    const filePath = path.join(uploadsDir, fileName);
+    await writeFile(filePath, markdownBuffer);
+
+    // Parse markdown to extract ToC
+    let parsedTitle = title;
+    let author: string | null = null;
+    let tocItems: TocItem[] = [];
+
+    try {
+        const parsed = await parseMarkdownFile(markdownBuffer);
+        if (parsed.metadata.title && parsed.metadata.title !== "Untitled") {
+            parsedTitle = parsed.metadata.title;
+        }
+        author = parsed.metadata.author;
+        tocItems = parsed.toc;
+    } catch (error) {
+        console.warn("Failed to parse pasted markdown:", error);
+    }
+
+    // Create database record
+    const source = await prisma.source.create({
+        data: {
+            title: parsedTitle,
+            author,
+            coverPath: null,
+            filePath: `/uploads/sources/${fileName}`,
+            fileHash,
+            fileSize: markdownBuffer.length,
+            sourceType: "paste",
+            userId,
+        },
+    });
+
+    // Create chapters from ToC
+    if (tocItems.length > 0) {
+        await createChapters(source.id, tocItems, null);
+    }
+
+    // Return source with chapters
+    const sourceWithChapters = await prisma.source.findUnique({
+        where: { id: source.id },
+        include: {
+            chapters: {
+                orderBy: { order: "asc" },
+            },
+        },
+    });
+
+    return NextResponse.json(sourceWithChapters, { status: 201 });
+}
+
 export async function GET(request: NextRequest) {
     const authResult = await requireAuth(request);
     if ("error" in authResult) {
@@ -603,6 +700,18 @@ export async function POST(request: NextRequest) {
 
         if (webUrl) {
             return await handleWebSource(webUrl, authResult.user.userId);
+        }
+
+        // Handle pasted text
+        const pasteContent = formData.get("pasteContent") as string | null;
+        const pasteTitle = formData.get("pasteTitle") as string | null;
+
+        if (pasteContent) {
+            return await handlePasteSource(
+                pasteContent,
+                pasteTitle || "Вставленный текст",
+                authResult.user.userId
+            );
         }
 
         // Handle file upload
