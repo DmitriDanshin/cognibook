@@ -120,6 +120,15 @@ export function useChapterContent({
     const scrollToChapter = useCallback(
         (chapterId: string, behavior: ScrollBehavior = "smooth") => {
             const element = document.getElementById(`chapter-${chapterId}`);
+            const viewport = scrollViewportRef.current;
+            if (element && viewport) {
+                const viewportRect = viewport.getBoundingClientRect();
+                const elementRect = element.getBoundingClientRect();
+                const top =
+                    elementRect.top - viewportRect.top + viewport.scrollTop;
+                viewport.scrollTo({ top, behavior });
+                return;
+            }
             element?.scrollIntoView({ behavior, block: "start" });
         },
         []
