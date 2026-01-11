@@ -33,8 +33,10 @@ import {
     Globe,
     ClipboardPaste,
     Maximize2,
+    ImagePlus,
 } from "lucide-react";
 import { toast } from "sonner";
+import { CoverUploadDialog } from "./components/cover-upload-dialog";
 
 interface Source {
     id: string;
@@ -54,6 +56,10 @@ export default function LibraryPage() {
     const [uploading, setUploading] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isPasteFullscreen, setIsPasteFullscreen] = useState(false);
+    const [isCoverDialogOpen, setIsCoverDialogOpen] = useState(false);
+    const [activeCoverSource, setActiveCoverSource] = useState<Source | null>(
+        null
+    );
     const [sourceType, setSourceType] = useState<"file" | "youtube" | "web" | "paste">(
         "file"
     );
@@ -287,6 +293,14 @@ export default function LibraryPage() {
             year: "numeric",
         });
     };
+
+    const handleCoverDialogChange = (open: boolean) => {
+        setIsCoverDialogOpen(open);
+        if (!open) {
+            setActiveCoverSource(null);
+        }
+    };
+
 
     return (
         <div className="min-h-dvh bg-background text-foreground">
@@ -530,6 +544,12 @@ export default function LibraryPage() {
                                 </div>
                             </DialogContent>
                         </Dialog>
+                        <CoverUploadDialog
+                            isOpen={isCoverDialogOpen}
+                            source={activeCoverSource}
+                            onOpenChange={handleCoverDialogChange}
+                            onSaved={fetchSources}
+                        />
                     </div>
                 </div>
             </header>
@@ -636,6 +656,19 @@ export default function LibraryPage() {
                                             Читать
                                         </Button>
                                     </Link>
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="text-muted-foreground hover:text-foreground"
+                                        onClick={() => {
+                                            setActiveCoverSource(source);
+                                            setIsCoverDialogOpen(true);
+                                        }}
+                                        aria-label="Изменить обложку"
+                                        title="Изменить обложку"
+                                    >
+                                        <ImagePlus className="h-4 w-4" />
+                                    </Button>
                                     <Button
                                         variant="outline"
                                         size="icon"
