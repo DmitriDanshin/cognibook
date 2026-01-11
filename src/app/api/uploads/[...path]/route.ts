@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFile, stat } from "fs/promises";
 import path from "path";
+import { UPLOAD_CONTENT_TYPES } from "@/lib/mime";
 
 export const dynamic = "force-dynamic";
 
@@ -32,17 +33,7 @@ export async function GET(
 
         // Determine content type
         const ext = path.extname(resolvedPath).toLowerCase();
-        const contentTypes: Record<string, string> = {
-            ".epub": "application/epub+zip",
-            ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            ".jpg": "image/jpeg",
-            ".jpeg": "image/jpeg",
-            ".png": "image/png",
-            ".gif": "image/gif",
-            ".webp": "image/webp",
-        };
-
-        const contentType = contentTypes[ext] || "application/octet-stream";
+        const contentType = UPLOAD_CONTENT_TYPES[ext] || "application/octet-stream";
 
         return new NextResponse(fileBuffer, {
             headers: {

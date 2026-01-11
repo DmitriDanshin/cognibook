@@ -11,6 +11,8 @@ import { parseWebPageToMarkdown, type WebImage } from "@/lib/parsers/source-pars
 import { exec } from "child_process";
 import { promisify } from "util";
 import crypto from "crypto";
+import { SOURCE_FILE_EXTENSIONS, SOURCE_TYPE_BY_EXTENSION } from "@/lib/constants";
+import { IMAGE_EXTENSION_BY_MIME } from "@/lib/mime";
 
 const execAsync = promisify(exec);
 
@@ -21,11 +23,9 @@ type TranscriptSnippet = {
 };
 
 const IMAGE_CONTENT_TYPES: Record<string, string> = {
-    "image/jpeg": "jpg",
+    ...IMAGE_EXTENSION_BY_MIME,
     "image/jpg": "jpg",
-    "image/png": "png",
     "image/gif": "gif",
-    "image/webp": "webp",
 };
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -623,7 +623,7 @@ ${content}`;
             filePath: `/uploads/sources/${fileName}`,
             fileHash,
             fileSize: markdownBuffer.length,
-            sourceType: "paste",
+            sourceType: "markdown",
             userId,
         },
     });
@@ -725,7 +725,8 @@ export async function POST(request: NextRequest) {
 
         const originalExt = path.extname(file.name);
         const fileExt = originalExt.toLowerCase();
-        const allowedExtensions = new Set([".epub", ".md", ".markdown", ".docx"]);
+        const allowedExtensions = new Set(SOURCE_FILE_EXTENSIONS);
+        const sourceType = SOURCE_TYPE_BY_EXTENSION[fileExt] ?? "markdown";
 
         if (!allowedExtensions.has(fileExt)) {
             return NextResponse.json(
@@ -850,6 +851,7 @@ export async function POST(request: NextRequest) {
                 filePath: `/uploads/sources/${fileName}`,
                 fileHash,
                 fileSize: file.size,
+                sourceType,
                 userId: authResult.user.userId,
             },
         });

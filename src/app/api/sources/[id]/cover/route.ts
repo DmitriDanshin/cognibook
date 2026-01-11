@@ -3,12 +3,9 @@ import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { mkdir, unlink, writeFile } from "fs/promises";
 import path from "path";
+import { IMAGE_EXTENSION_BY_MIME } from "@/lib/mime";
 
-const ALLOWED_TYPES: Record<string, string> = {
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-};
+const ALLOWED_TYPES = IMAGE_EXTENSION_BY_MIME;
 
 export async function POST(
     request: NextRequest,

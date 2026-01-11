@@ -4,15 +4,9 @@ import { requireAuth } from "@/lib/auth";
 import { readFile } from "fs/promises";
 import path from "path";
 import JSZip from "jszip";
+import { IMAGE_MIME_BY_EXTENSION } from "@/lib/mime";
 
-const MIME_TYPES: Record<string, string> = {
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".png": "image/png",
-    ".gif": "image/gif",
-    ".webp": "image/webp",
-    ".svg": "image/svg+xml",
-};
+const MIME_TYPES = IMAGE_MIME_BY_EXTENSION;
 
 export async function GET(
     request: NextRequest,

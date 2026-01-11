@@ -39,6 +39,8 @@ import {
     Filter,
 } from "lucide-react";
 import { toast } from "sonner";
+import { QUIZ_IMPORT_EXTENSIONS } from "@/lib/constants";
+import { formatDateRuShort } from "@/lib/format";
 
 interface Quiz {
     id: string;
@@ -332,7 +334,7 @@ export default function QuizzesPage() {
         if (!file) return;
 
         const lowerName = file.name.toLowerCase();
-        const allowedExtensions = [".json", ".yaml", ".yml"];
+        const allowedExtensions = QUIZ_IMPORT_EXTENSIONS;
         if (!allowedExtensions.some((ext) => lowerName.endsWith(ext))) {
             toast.error("Поддерживаются файлы JSON или YAML");
             return;
@@ -375,13 +377,6 @@ export default function QuizzesPage() {
         }
     };
 
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString("ru-RU", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-        });
-    };
 
     const getLastAttemptBadge = (quiz: Quiz) => {
         if (quiz.attempts.length === 0) {
@@ -571,7 +566,7 @@ export default function QuizzesPage() {
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Clock className="h-4 w-4" />
-                        <span>Создан {formatDate(quiz.createdAt)}</span>
+                        <span>Создан {formatDateRuShort(quiz.createdAt)}</span>
                     </div>
                     {quiz._count.attempts > 0 && (
                         <div className="text-sm text-muted-foreground">

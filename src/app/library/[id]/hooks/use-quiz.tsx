@@ -4,6 +4,7 @@ import React, { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { QUIZ_IMPORT_EXTENSIONS } from "@/lib/constants";
 import type { Chapter, Source, ValidationError, LinkedQuiz } from "../types";
 
 interface UseQuizOptions {
@@ -110,7 +111,7 @@ export function useQuiz({
         if (!file) return;
 
         const lowerName = file.name.toLowerCase();
-        const allowedExtensions = [".json", ".yaml", ".yml"];
+        const allowedExtensions = QUIZ_IMPORT_EXTENSIONS;
         if (!allowedExtensions.some((ext) => lowerName.endsWith(ext))) {
             toast.error("Поддерживаются файлы JSON или YAML");
             return;

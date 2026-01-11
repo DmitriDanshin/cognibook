@@ -35,9 +35,12 @@ import {
     Maximize2,
     ImagePlus,
     Pencil,
+    Tag,
 } from "lucide-react";
 import { toast } from "sonner";
 import { CoverUploadDialog } from "./components/cover-upload-dialog";
+import { SOURCE_FILE_EXTENSIONS, SOURCE_TYPE_LABELS } from "@/lib/constants";
+import { formatDateRuShort, formatFileSizeMb } from "@/lib/format";
 
 /**
  * Extract title from markdown content:
@@ -90,9 +93,10 @@ interface Source {
     title: string;
     author: string | null;
     coverPath: string | null;
-    filePath: string;
+    filePath: string | null;
     fileSize: number | null;
     createdAt: string;
+    sourceType: string | null;
     readingProgress: { progress: number }[];
     _count: { chapters: number };
 }
@@ -141,7 +145,7 @@ export default function LibraryPage() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        const allowedExtensions = [".epub", ".md", ".markdown", ".docx"];
+        const allowedExtensions = SOURCE_FILE_EXTENSIONS;
         const lowerName = file.name.toLowerCase();
         if (!allowedExtensions.some((ext) => lowerName.endsWith(ext))) {
             toast.error("Поддерживаются только файлы EPUB, Markdown или Word");
@@ -331,19 +335,17 @@ export default function LibraryPage() {
         }
     };
 
-    const formatFileSize = (bytes: number | null) => {
-        if (!bytes) return "N/A";
-        const mb = bytes / (1024 * 1024);
-        return `${mb.toFixed(2)} MB`;
+    const getSourceTypeLabel = (source: Source) => {
+        const rawType = source.sourceType?.toLowerCase();
+        if (rawType && SOURCE_TYPE_LABELS[rawType]) {
+            return SOURCE_TYPE_LABELS[rawType];
+        }
+        if (!source.filePath) return "Источник";
+        const ext = source.filePath.split(".").pop()?.toLowerCase();
+        if (!ext) return "Файл";
+        return SOURCE_TYPE_LABELS[ext] ?? "Файл";
     };
 
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString("ru-RU", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-        });
-    };
 
     const handleCoverDialogChange = (open: boolean) => {
         setIsCoverDialogOpen(open);
@@ -752,12 +754,16 @@ export default function LibraryPage() {
                                     </p>
                                     <div className="flex flex-wrap gap-2">
                                         <Badge variant="secondary" className="gap-1">
+                                            <Tag className="h-3 w-3" />
+                                            {getSourceTypeLabel(source)}
+                                        </Badge>
+                                        <Badge variant="secondary" className="gap-1">
                                             <HardDrive className="h-3 w-3" />
-                                            {formatFileSize(source.fileSize)}
+                                            {formatFileSizeMb(source.fileSize)}
                                         </Badge>
                                         <Badge variant="secondary" className="gap-1">
                                             <Clock className="h-3 w-3" />
-                                            {formatDate(source.createdAt)}
+                                            {formatDateRuShort(source.createdAt)}
                                         </Badge>
                                     </div>
                                     {source.readingProgress[0]?.progress > 0 && (
