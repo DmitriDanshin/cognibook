@@ -1,6 +1,56 @@
 import { BaseParser } from "./base-parser";
 import type { SourceMetadata, ParsedMarkdown, SpineItem, TocItem } from "./types";
-import { escapeHtml } from "../../utils/html";
+
+import { unified } from "unified";
+import remarkParse from "remark-parse";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import remarkRehype from "remark-rehype";
+import rehypeRaw from "rehype-raw";
+import rehypeKatex from "rehype-katex";
+import rehypeStringify from "rehype-stringify";
+
+// Dangerous tags to completely remove (including content)
+const DANGEROUS_TAGS = new Set([
+    "script", "style", "iframe", "object", "embed", "form",
+    "input", "button", "textarea", "noscript", "frame", "frameset"
+]);
+
+/**
+ * Sanitize HTML string before processing with KaTeX
+ * This removes dangerous elements while preserving safe markdown-generated HTML
+ */
+function sanitizeHtmlBeforeKatex(html: string): string {
+    // Remove dangerous tags entirely (including content)
+    for (const tag of DANGEROUS_TAGS) {
+        // Remove opening and closing tags with content
+        const regex = new RegExp(`<${tag}[^>]*>[\\s\\S]*?</${tag}>`, "gi");
+        html = html.replace(regex, "");
+        // Remove self-closing
+        const selfClosing = new RegExp(`<${tag}[^>]*/?>`, "gi");
+        html = html.replace(selfClosing, "");
+    }
+
+    // Remove event handlers (onclick, onerror, etc.)
+    html = html.replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, "");
+    html = html.replace(/\s+on\w+\s*=\s*[^\s>]+/gi, "");
+
+    // Sanitize javascript: in href
+    html = html.replace(/href\s*=\s*["']?\s*javascript:[^"'\s>]*/gi, 'href="#"');
+
+    return html;
+}
+
+/**
+ * Escape dollar signs inside <code> tags to prevent KaTeX from parsing them as math
+ */
+function escapeDollarsInCodeTags(content: string): string {
+    // Replace $ with HTML entity inside <code>...</code> tags
+    return content.replace(/<code>([^<]*)<\/code>/gi, (match, inner) => {
+        const escaped = inner.replace(/\$/g, '&#36;');
+        return `<code>${escaped}</code>`;
+    });
+}
 
 type MarkdownHeading = {
     level: number;
@@ -8,6 +58,24 @@ type MarkdownHeading = {
     href: string;
     order: number;
     lineIndex: number;
+};
+
+// Create the unified processor
+// Order: parse markdown -> GFM -> math -> convert to HTML -> process raw HTML -> render KaTeX -> stringify
+// Note: We do NOT use rehype-sanitize here because it strips KaTeX output.
+// Instead, we sanitize the input HTML before processing.
+const createProcessor = () => {
+    return unified()
+        .use(remarkParse)
+        .use(remarkGfm)
+        .use(remarkMath, { singleDollarTextMath: true })
+        .use(remarkRehype, { allowDangerousHtml: true })
+        .use(rehypeRaw)
+        .use(rehypeKatex, {
+            strict: false,
+            throwOnError: false,
+        })
+        .use(rehypeStringify, { allowDangerousHtml: true });
 };
 
 export class MarkdownParser extends BaseParser<ParsedMarkdown> {
@@ -154,23 +222,32 @@ export class MarkdownParser extends BaseParser<ParsedMarkdown> {
         const headings: MarkdownHeading[] = [];
         let order = 0;
         let inCodeBlock = false;
+        let inMathBlock = false;
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             const trimmed = line.trim();
 
+            // Track code blocks
             if (trimmed.startsWith("```")) {
                 inCodeBlock = !inCodeBlock;
                 continue;
             }
 
-            if (inCodeBlock) continue;
+            // Track math blocks ($$...$$)
+            if (trimmed === "$$") {
+                inMathBlock = !inMathBlock;
+                continue;
+            }
+
+            if (inCodeBlock || inMathBlock) continue;
 
             const match = /^(#{1,6})\s+(.+)$/.exec(line);
             if (!match) continue;
 
             const level = match[1].length;
-            const title = match[2].trim();
+            // Strip trailing hashes and clean up title
+            const title = match[2].trim().replace(/\s+#+\s*$/, "");
             const href = `#md-${order}`;
 
             headings.push({ level, title, href, order, lineIndex: i });
@@ -254,139 +331,23 @@ export class MarkdownParser extends BaseParser<ParsedMarkdown> {
         return { start, end };
     }
 
-    private renderMarkdownToHtml(markdown: string): string {
-        const lines = markdown.split(/\r?\n/);
-        let html = "";
-        let inCodeBlock = false;
-        let codeFenceLanguage: string | null = null;
-        let inHtmlBlock = false;
-        let listType: "ul" | "ol" | null = null;
-        let paragraph: string[] = [];
+    private async renderMarkdownToHtml(markdown: string): Promise<string> {
+        // Escape $ inside <code> tags to prevent KaTeX from parsing them as math
+        const escapedMarkdown = escapeDollarsInCodeTags(markdown);
 
-        const flushParagraph = () => {
-            if (paragraph.length === 0) return;
-            html += `<p>${this.formatInline(paragraph.join(" "))}</p>`;
-            paragraph = [];
-        };
+        // Pre-sanitize raw HTML in markdown before processing
+        const sanitizedMarkdown = sanitizeHtmlBeforeKatex(escapedMarkdown);
 
-        const closeList = () => {
-            if (!listType) return;
-            html += `</${listType}>`;
-            listType = null;
-        };
+        const processor = createProcessor();
+        const result = await processor.process(sanitizedMarkdown);
 
-        for (const line of lines) {
-            const trimmed = line.trim();
+        // Post-process: sanitize any remaining dangerous patterns in output
+        let html = String(result);
 
-            if (trimmed.startsWith("```")) {
-                flushParagraph();
-                closeList();
-                if (!inCodeBlock) {
-                    const match = /^```(\S+)?/.exec(trimmed);
-                    codeFenceLanguage = match?.[1] ?? null;
-                    const languageClass = codeFenceLanguage
-                        ? ` class="language-${escapeHtml(codeFenceLanguage)}"`
-                        : "";
-                    html += `<pre><code${languageClass}>`;
-                    inCodeBlock = true;
-                } else {
-                    html += "</code></pre>";
-                    inCodeBlock = false;
-                    codeFenceLanguage = null;
-                }
-                continue;
-            }
-
-            if (inCodeBlock) {
-                html += `${escapeHtml(line)}\n`;
-                continue;
-            }
-
-            if (inHtmlBlock) {
-                html += `${escapeHtml(line)}\n`;
-                if (trimmed.endsWith(">")) {
-                    inHtmlBlock = false;
-                }
-                continue;
-            }
-
-            if (trimmed.startsWith("<")) {
-                flushParagraph();
-                closeList();
-                html += `${escapeHtml(line)}\n`;
-                if (!trimmed.endsWith(">")) {
-                    inHtmlBlock = true;
-                }
-                continue;
-            }
-
-            const headingMatch = /^(#{1,6})\s+(.+)$/.exec(line);
-            if (headingMatch) {
-                flushParagraph();
-                closeList();
-                const level = headingMatch[1].length;
-                const text = headingMatch[2].trim();
-                html += `<h${level}>${this.formatInline(text)}</h${level}>`;
-                continue;
-            }
-
-            if (/^(?:-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
-                flushParagraph();
-                closeList();
-                html += "<hr />";
-                continue;
-            }
-
-            const orderedMatch = /^\d+\.\s+(.+)$/.exec(trimmed);
-            const unorderedMatch = /^[-*+]\s+(.+)$/.exec(trimmed);
-            if (orderedMatch || unorderedMatch) {
-                flushParagraph();
-                const type = orderedMatch ? "ol" : "ul";
-                if (listType !== type) {
-                    closeList();
-                    html += `<${type}>`;
-                    listType = type;
-                }
-                const itemText = (orderedMatch ? orderedMatch[1] : unorderedMatch![1]).trim();
-                html += `<li>${this.formatInline(itemText)}</li>`;
-                continue;
-            }
-
-            if (trimmed === "") {
-                flushParagraph();
-                closeList();
-                continue;
-            }
-
-            paragraph.push(trimmed);
-        }
-
-        if (inCodeBlock) {
-            html += "</code></pre>";
-        }
-
-        flushParagraph();
-        closeList();
+        // Final safety check - remove any javascript: URLs that might have slipped through
+        html = html.replace(/href\s*=\s*["']?\s*javascript:[^"'\s>]*/gi, 'href="#"');
 
         return html;
-    }
-
-    private formatInline(text: string): string {
-        let escaped = escapeHtml(text);
-
-        escaped = escaped.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, alt, url) => {
-            return `<img src="${url}" alt="${alt}" />`;
-        });
-        escaped = escaped.replace(/`([^`]+)`/g, "<code>$1</code>");
-        escaped = escaped.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-        escaped = escaped.replace(/__([^_]+)__/g, "<strong>$1</strong>");
-        escaped = escaped.replace(/\*([^*]+)\*/g, "<em>$1</em>");
-        escaped = escaped.replace(/_([^_]+)_/g, "<em>$1</em>");
-        escaped = escaped.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, textPart, url) => {
-            return `<a href="${url}">${textPart}</a>`;
-        });
-
-        return escaped;
     }
 }
 
