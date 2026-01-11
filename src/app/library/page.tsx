@@ -346,6 +346,21 @@ export default function LibraryPage() {
         return SOURCE_TYPE_LABELS[ext] ?? "Файл";
     };
 
+    const isMarkdownSource = (source: Source) => {
+        const rawType = source.sourceType?.toLowerCase();
+        if (rawType === "markdown" || rawType === "paste") return true;
+        const ext = source.filePath?.split(".").pop()?.toLowerCase();
+        return ext === "md" || ext === "markdown";
+    };
+
+    const isWebSource = (source: Source) => source.sourceType?.toLowerCase() === "web";
+
+    const getAuthorLabel = (source: Source) => {
+        if (source.author) return source.author;
+        if (isWebSource(source) || isMarkdownSource(source)) return null;
+        return "Автор неизвестен";
+    };
+
 
     const handleCoverDialogChange = (open: boolean) => {
         setIsCoverDialogOpen(open);
@@ -661,6 +676,12 @@ export default function LibraryPage() {
                                         onChange={(e) => setRenameTitle(e.target.value)}
                                         placeholder="Название источника"
                                         disabled={renaming}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                                e.preventDefault();
+                                                handleRename();
+                                            }
+                                        }}
                                     />
                                     <div className="flex gap-2">
                                         <Button
@@ -749,8 +770,8 @@ export default function LibraryPage() {
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="pb-2">
-                                    <p className="mb-3 text-sm text-muted-foreground">
-                                        {source.author || "Автор неизвестен"}
+                                    <p className="mb-3 min-h-[1.25rem] text-sm text-muted-foreground">
+                                        {getAuthorLabel(source) ?? ""}
                                     </p>
                                     <div className="flex flex-wrap gap-2">
                                         <Badge variant="secondary" className="gap-1">
