@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/accordion";
 import {
     ArrowLeft,
-    ChevronRight,
     Clock,
     FileText,
     Trophy,
@@ -126,9 +125,7 @@ export function Sidebar({
                         onCheckedChange={(checked) => onChapterCheckboxChange(chapter.id, checked === true)}
                         className="h-4 w-4 flex-shrink-0"
                     />
-                ) : (
-                    <ChevronRight className="h-3 w-3 flex-shrink-0" />
-                )}
+                ) : null}
                 <span className="line-clamp-1 flex-1">{chapter.title}</span>
                 {renderQuizStatusIcon(chapter.quizStatus)}
             </button>
