@@ -36,7 +36,7 @@ export function Toolbar({
     const router = useRouter();
 
     return (
-        <header className="flex h-14 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur sm:h-16 sm:px-6">
+        <header className="relative z-30 flex h-14 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur sm:h-16 sm:px-6">
             <div className="flex min-w-0 items-center gap-4">
                 <Button
                     variant="ghost"
