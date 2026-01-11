@@ -34,6 +34,7 @@ import {
     ClipboardPaste,
     Maximize2,
     ImagePlus,
+    Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { CoverUploadDialog } from "./components/cover-upload-dialog";
@@ -106,6 +107,10 @@ export default function LibraryPage() {
     const [activeCoverSource, setActiveCoverSource] = useState<Source | null>(
         null
     );
+    const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+    const [renaming, setRenaming] = useState(false);
+    const [renameTitle, setRenameTitle] = useState("");
+    const [renameSource, setRenameSource] = useState<Source | null>(null);
     const [sourceType, setSourceType] = useState<"file" | "youtube" | "web" | "paste">(
         "file"
     );
@@ -344,6 +349,45 @@ export default function LibraryPage() {
         setIsCoverDialogOpen(open);
         if (!open) {
             setActiveCoverSource(null);
+        }
+    };
+
+    const handleRenameDialogChange = (open: boolean) => {
+        setIsRenameDialogOpen(open);
+        if (!open) {
+            setRenameSource(null);
+            setRenameTitle("");
+        }
+    };
+
+    const handleRename = async () => {
+        const nextTitle = renameTitle.trim();
+        if (!renameSource || !nextTitle) {
+            toast.error("Введите название источника");
+            return;
+        }
+
+        setRenaming(true);
+        try {
+            const response = await fetch(`/api/sources/${renameSource.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ title: nextTitle }),
+            });
+
+            const data = await response.json().catch(() => null);
+            if (!response.ok) {
+                throw new Error(data?.error || "Failed to update");
+            }
+
+            toast.success("Название источника обновлено");
+            handleRenameDialogChange(false);
+            fetchSources();
+        } catch (error) {
+            console.error("Error renaming source:", error);
+            toast.error("Не удалось переименовать источник");
+        } finally {
+            setRenaming(false);
         }
     };
 
@@ -596,6 +640,46 @@ export default function LibraryPage() {
                             onOpenChange={handleCoverDialogChange}
                             onSaved={fetchSources}
                         />
+                        <Dialog
+                            open={isRenameDialogOpen}
+                            onOpenChange={handleRenameDialogChange}
+                        >
+                            <DialogContent className="border-border bg-background sm:max-w-md">
+                                <DialogHeader>
+                                    <DialogTitle className="text-foreground">
+                                        Переименовать источник
+                                    </DialogTitle>
+                                    <DialogDescription className="text-muted-foreground">
+                                        Новое название будет видно в библиотеке и тестах.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4">
+                                    <Input
+                                        value={renameTitle}
+                                        onChange={(e) => setRenameTitle(e.target.value)}
+                                        placeholder="Название источника"
+                                        disabled={renaming}
+                                    />
+                                    <div className="flex gap-2">
+                                        <Button
+                                            variant="outline"
+                                            className="flex-1"
+                                            onClick={() => handleRenameDialogChange(false)}
+                                            disabled={renaming}
+                                        >
+                                            Отмена
+                                        </Button>
+                                        <Button
+                                            className="flex-1"
+                                            onClick={handleRename}
+                                            disabled={renaming || !renameTitle.trim()}
+                                        >
+                                            {renaming ? "Сохранение..." : "Сохранить"}
+                                        </Button>
+                                    </div>
+                                </div>
+                            </DialogContent>
+                        </Dialog>
                     </div>
                 </div>
             </header>
@@ -702,6 +786,20 @@ export default function LibraryPage() {
                                             Читать
                                         </Button>
                                     </Link>
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="text-muted-foreground hover:text-foreground"
+                                        onClick={() => {
+                                            setRenameSource(source);
+                                            setRenameTitle(source.title);
+                                            setIsRenameDialogOpen(true);
+                                        }}
+                                        aria-label="Переименовать источник"
+                                        title="Переименовать источник"
+                                    >
+                                        <Pencil className="h-4 w-4" />
+                                    </Button>
                                     <Button
                                         variant="outline"
                                         size="icon"

@@ -128,3 +128,47 @@ export async function DELETE(
         );
     }
 }
+
+export async function PATCH(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    const authResult = await requireAuth(request);
+    if ("error" in authResult) {
+        return authResult.error;
+    }
+
+    try {
+        const { id } = await params;
+        const body = await request.json().catch(() => null);
+        const title = body?.title?.toString().trim();
+
+        if (!title) {
+            return NextResponse.json(
+                { error: "Title is required" },
+                { status: 400 }
+            );
+        }
+
+        const source = await prisma.source.findFirst({
+            where: { id, userId: authResult.user.userId },
+        });
+
+        if (!source) {
+            return NextResponse.json({ error: "Source not found" }, { status: 404 });
+        }
+
+        const updated = await prisma.source.update({
+            where: { id },
+            data: { title },
+        });
+
+        return NextResponse.json(updated);
+    } catch (error) {
+        console.error("Error updating source:", error);
+        return NextResponse.json(
+            { error: "Failed to update source" },
+            { status: 500 }
+        );
+    }
+}
