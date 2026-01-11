@@ -725,7 +725,7 @@ export async function POST(request: NextRequest) {
 
         const originalExt = path.extname(file.name);
         const fileExt = originalExt.toLowerCase();
-        const allowedExtensions = new Set(SOURCE_FILE_EXTENSIONS);
+        const allowedExtensions = new Set<string>(SOURCE_FILE_EXTENSIONS);
         const sourceType = SOURCE_TYPE_BY_EXTENSION[fileExt] ?? "markdown";
 
         if (!allowedExtensions.has(fileExt)) {
