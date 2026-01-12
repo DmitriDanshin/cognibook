@@ -30,7 +30,9 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 # Install Python 3 and uv for YouTube transcript functionality
-RUN apk add --no-cache python3 py3-pip curl bash
+# Also install dependencies for @napi-rs/canvas (used by pdfjs-dist)
+RUN apk add --no-cache python3 py3-pip curl bash \
+    cairo pango libjpeg-turbo giflib librsvg
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 RUN mv /root/.local/bin/uv /usr/local/bin/uv && \
     mv /root/.local/bin/uvx /usr/local/bin/uvx
