@@ -23,14 +23,20 @@ export const ChapterContent = memo(function ChapterContent({
     isSearchOpen,
     pdfUrl,
     selectedChapter,
+    initialPdfPage,
     onPdfPageChange,
 }: ChapterContentProps) {
     // Extract page number from selected chapter href (format: "page-N")
+    // If initialPdfPage is provided (from localStorage), use it; otherwise extract from chapter
     const initialPage = useMemo(() => {
-        if (!selectedChapter) return 1;
-        const match = selectedChapter.href.match(/page-(\d+)/);
-        return match ? parseInt(match[1], 10) : 1;
-    }, [selectedChapter]);
+        // If navigating via TOC (selectedChapter changed), use chapter page
+        if (selectedChapter) {
+            const match = selectedChapter.href.match(/page-(\d+)/);
+            if (match) return parseInt(match[1], 10);
+        }
+        // Fallback to initialPdfPage (from localStorage) or default to 1
+        return initialPdfPage ?? 1;
+    }, [selectedChapter, initialPdfPage]);
 
     // If this is a PDF source, render PDF viewer
     if (pdfUrl) {

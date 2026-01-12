@@ -23,6 +23,16 @@ export default function SourceReaderPage({
     const returnToQuiz = searchParams.get("returnToQuiz");
 
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    // Lazy initialization for PDF position from localStorage
+    const [initialPdfPage] = useState<number>(() => {
+        if (typeof window === "undefined") return 1;
+        const savedPage = localStorage.getItem(`pdf-position-${id}`);
+        if (savedPage) {
+            const page = parseInt(savedPage, 10);
+            if (!isNaN(page) && page > 0) return page;
+        }
+        return 1;
+    });
 
     // Source and chapters management
     const {
@@ -128,6 +138,11 @@ export default function SourceReaderPage({
 
     // Handle PDF page change - find and select the corresponding chapter
     const handlePdfPageChange = useCallback((pageNumber: number) => {
+        // Save position to localStorage
+        if (typeof window !== "undefined") {
+            localStorage.setItem(`pdf-position-${id}`, String(pageNumber));
+        }
+
         // Find the chapter that best matches this page number
         // Chapters have href in format "page-N"
         let bestMatch: Chapter | null = null;
@@ -148,7 +163,8 @@ export default function SourceReaderPage({
         if (bestMatch && bestMatch.id !== selectedChapter?.id) {
             setSelectedChapter(bestMatch);
         }
-    }, [orderedChapters, selectedChapter?.id, setSelectedChapter]);
+    }, [id, orderedChapters, selectedChapter?.id, setSelectedChapter]);
+
 
     // Initial data fetch
     useEffect(() => {
@@ -388,6 +404,7 @@ export default function SourceReaderPage({
                     isSearchOpen={isSearchOpen}
                     pdfUrl={source?.sourceType === "pdf" ? source.filePath : null}
                     selectedChapter={selectedChapter}
+                    initialPdfPage={initialPdfPage}
                     onPdfPageChange={handlePdfPageChange}
                 />
             </main>

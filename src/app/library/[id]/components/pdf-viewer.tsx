@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, memo } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
-import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { Virtuoso, VirtuosoHandle } from "react-virtuoso";
 
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -19,119 +20,171 @@ interface PdfViewerProps {
     onPageChange?: (pageNumber: number) => void;
 }
 
+// Memoized page component with fixed height container to prevent scroll jumps
+const PdfPage = memo(function PdfPage({
+    pageNumber,
+    width,
+    height,
+}: {
+    pageNumber: number;
+    width: number;
+    height: number;
+}) {
+    return (
+        <div
+            className="flex items-start justify-center pb-4"
+            style={{ minHeight: height }}
+        >
+            <Page
+                pageNumber={pageNumber}
+                width={width}
+                renderTextLayer={true}
+                renderAnnotationLayer={true}
+                loading={
+                    <div
+                        className="bg-white dark:bg-zinc-900 shadow-sm"
+                        style={{ width, height: height - 16 }}
+                    />
+                }
+            />
+        </div>
+    );
+});
+
 export function PdfViewer({ url, className, initialPage = 1, onPageChange }: PdfViewerProps) {
     const [numPages, setNumPages] = useState<number>(0);
-    const [pageNumber, setPageNumber] = useState<number>(initialPage);
-    const [prevInitialPage, setPrevInitialPage] = useState<number>(initialPage);
+    const [currentPage, setCurrentPage] = useState<number>(initialPage);
     const [error, setError] = useState<string | null>(null);
     const [containerWidth, setContainerWidth] = useState<number>(0);
+    const [containerHeight, setContainerHeight] = useState<number>(0);
+    const [isDocumentLoaded, setIsDocumentLoaded] = useState(false);
+
     const containerRef = useRef<HTMLDivElement>(null);
+    const virtuosoRef = useRef<VirtuosoHandle>(null);
 
-    // Reset page when initialPage changes (React-recommended pattern for adjusting state on prop change)
-    if (prevInitialPage !== initialPage) {
-        setPrevInitialPage(initialPage);
-        setPageNumber(initialPage);
-    }
-
+    // Handle container dimensions for responsive PDF rendering
     useEffect(() => {
-        function updateWidth() {
+        function updateDimensions() {
             if (containerRef.current) {
                 const width = Math.min(containerRef.current.clientWidth - 32, 768);
+                const height = containerRef.current.clientHeight;
                 setContainerWidth(width);
+                setContainerHeight(height);
             }
         }
-        updateWidth();
-        window.addEventListener("resize", updateWidth);
-        return () => window.removeEventListener("resize", updateWidth);
+        updateDimensions();
+        window.addEventListener("resize", updateDimensions);
+        return () => window.removeEventListener("resize", updateDimensions);
     }, []);
 
     function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
         setNumPages(numPages);
         setError(null);
+        setIsDocumentLoaded(true);
     }
 
     function onDocumentLoadError(err: Error) {
         setError(err.message);
+        setIsDocumentLoaded(false);
     }
 
-    const goToPrevPage = useCallback(() => {
-        setPageNumber(prev => Math.max(prev - 1, 1));
-    }, []);
+    // Track visible page range and update current page
+    const currentPageRef = useRef(initialPage);
+    const isScrollingRef = useRef(false);
 
-    const goToNextPage = useCallback(() => {
-        setPageNumber(prev => Math.min(prev + 1, numPages));
-    }, [numPages]);
-
-    // Notify parent of page changes (deferred to avoid setState during render)
-    const lastReportedPage = useRef(initialPage);
-
-    useEffect(() => {
-        // Only report if page changed due to user navigation, not from initialPage prop
-        if (pageNumber !== lastReportedPage.current && pageNumber !== initialPage) {
-            lastReportedPage.current = pageNumber;
-            onPageChange?.(pageNumber);
-        } else if (pageNumber === initialPage) {
-            lastReportedPage.current = pageNumber;
+    const handleRangeChange = useCallback(({ startIndex }: { startIndex: number }) => {
+        const newPage = startIndex + 1;
+        if (newPage !== currentPageRef.current) {
+            isScrollingRef.current = true;
+            currentPageRef.current = newPage;
+            setCurrentPage(newPage);
+            onPageChange?.(newPage);
+            // Reset flag after state updates propagate
+            requestAnimationFrame(() => {
+                isScrollingRef.current = false;
+            });
         }
-    }, [pageNumber, initialPage, onPageChange]);
+    }, [onPageChange]);
+
+    // Handle navigation from TOC (when initialPage prop changes after initial render)
+    // Only scroll if the change came from TOC click, not from user scrolling
+    const isFirstRender = useRef(true);
+    const lastInitialPageRef = useRef(initialPage);
+    useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            lastInitialPageRef.current = initialPage;
+            return;
+        }
+        // Skip if the change was triggered by user scrolling
+        if (isScrollingRef.current) {
+            lastInitialPageRef.current = initialPage;
+            return;
+        }
+        // Skip if initialPage didn't actually change (avoids unnecessary scrolls)
+        if (initialPage === lastInitialPageRef.current) {
+            return;
+        }
+        lastInitialPageRef.current = initialPage;
+
+        if (isDocumentLoaded) {
+            virtuosoRef.current?.scrollToIndex({
+                index: initialPage - 1,
+                behavior: "smooth",
+            });
+        }
+    }, [initialPage, isDocumentLoaded]);
+
+    // Calculate fixed item height (A4 ratio + padding)
+    const itemHeight = containerWidth * 1.414 + 16;
+
+    // Render individual page item
+    const itemContent = useCallback((index: number) => {
+        if (containerWidth === 0) return null;
+        return <PdfPage pageNumber={index + 1} width={containerWidth} height={itemHeight} />;
+    }, [containerWidth, itemHeight]);
 
     return (
-        <div className={`flex flex-col overflow-hidden ${className ?? ""}`}>
-            {/* Page navigation */}
-            {numPages > 1 && (
-                <div className="flex shrink-0 items-center justify-center gap-4 border-b bg-background py-2">
-                    <button
-                        onClick={goToPrevPage}
-                        disabled={pageNumber <= 1}
-                        className="rounded p-1 hover:bg-muted disabled:opacity-50"
-                    >
-                        <ChevronLeft className="h-5 w-5" />
-                    </button>
-                    <span className="text-sm">
-                        {pageNumber} / {numPages}
-                    </span>
-                    <button
-                        onClick={goToNextPage}
-                        disabled={pageNumber >= numPages}
-                        className="rounded p-1 hover:bg-muted disabled:opacity-50"
-                    >
-                        <ChevronRight className="h-5 w-5" />
-                    </button>
+        <div ref={containerRef} className={`relative flex flex-col ${className ?? ""}`}>
+            <Document
+                file={url}
+                onLoadSuccess={onDocumentLoadSuccess}
+                onLoadError={onDocumentLoadError}
+                loading={
+                    <div className="flex h-full items-center justify-center py-20">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                }
+                error={
+                    <div className="flex flex-col items-center justify-center py-20 text-destructive">
+                        <p>Ошибка загрузки PDF</p>
+                        {error && <p className="text-sm">{error}</p>}
+                    </div>
+                }
+                className="flex-1 overflow-hidden"
+            >
+                {isDocumentLoaded && containerWidth > 0 && containerHeight > 0 && (
+                    <Virtuoso
+                        ref={virtuosoRef}
+                        style={{ height: containerHeight }}
+                        totalCount={numPages}
+                        itemContent={itemContent}
+                        rangeChanged={handleRangeChange}
+                        overscan={5}
+                        fixedItemHeight={itemHeight}
+                        initialTopMostItemIndex={initialPage - 1}
+                    />
+                )}
+            </Document>
+
+            {/* Floating page indicator */}
+            {numPages > 0 && (
+                <div className="pointer-events-none absolute bottom-4 left-0 right-0 flex justify-center">
+                    <div className="pointer-events-auto rounded-full bg-foreground/80 px-3 py-1 text-sm text-background shadow-lg backdrop-blur-sm">
+                        {currentPage} / {numPages}
+                    </div>
                 </div>
             )}
-
-            {/* PDF content */}
-            <div className="min-h-0 flex-1 overflow-auto">
-                <div ref={containerRef} className="mx-auto max-w-3xl px-4 py-4">
-                    <Document
-                        file={url}
-                        onLoadSuccess={onDocumentLoadSuccess}
-                        onLoadError={onDocumentLoadError}
-                        loading={
-                            <div className="flex items-center justify-center py-20">
-                                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                            </div>
-                        }
-                        error={
-                            <div className="flex flex-col items-center justify-center py-20 text-destructive">
-                                <p>Ошибка загрузки PDF</p>
-                                {error && <p className="text-sm">{error}</p>}
-                            </div>
-                        }
-                    >
-                        {containerWidth > 0 && (
-                            <Page
-                                pageNumber={pageNumber}
-                                width={containerWidth}
-                                renderTextLayer={true}
-                                renderAnnotationLayer={true}
-                            />
-                        )}
-                    </Document>
-                </div>
-            </div>
         </div>
     );
 }
-
-

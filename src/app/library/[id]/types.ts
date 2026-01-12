@@ -37,6 +37,7 @@ export type ChapterContentProps = {
     isSearchOpen: boolean;
     pdfUrl: string | null;
     selectedChapter: Chapter | null;
+    initialPdfPage?: number;
     onPdfPageChange?: (pageNumber: number) => void;
 };
 

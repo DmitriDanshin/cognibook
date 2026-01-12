@@ -190,11 +190,12 @@ export async function parsePdfFile(buffer: Buffer): Promise<ParsedPdf> {
 
 export async function getPdfChapterContent(
     buffer: Buffer,
-    chapterHref: string
+    chapterHref: string,
+    endPage?: number
 ): Promise<string> {
     const match = chapterHref.match(/page-(\d+)/);
     const pageNum = match ? parseInt(match[1], 10) : 1;
-    logger.debug({ chapterHref, pageNum }, "PDF chapter content requested");
+    logger.debug({ chapterHref, pageNum, endPage }, "PDF chapter content requested");
 
     const data = new Uint8Array(buffer);
     const pdf = await pdfjs.getDocument({
@@ -202,44 +203,61 @@ export async function getPdfChapterContent(
         useSystemFonts: true,
     }).promise;
 
-    // Ensure page number is valid
+    // Ensure page numbers are valid
     const validPageNum = Math.max(1, Math.min(pageNum, pdf.numPages));
-    if (validPageNum !== pageNum) {
+    const validEndPage = typeof endPage === "number"
+        ? Math.max(1, Math.min(endPage, pdf.numPages))
+        : pdf.numPages;
+    const finalEndPage = Math.max(validPageNum, validEndPage);
+
+    if (validPageNum !== pageNum || (typeof endPage === "number" && validEndPage !== endPage)) {
         logger.warn(
-            { pageNum, validPageNum, numPages: pdf.numPages },
+            { pageNum, validPageNum, endPage, validEndPage, numPages: pdf.numPages },
             "PDF chapter page out of range, clamped"
         );
     }
-    const page = await pdf.getPage(validPageNum);
-    const textContent = await page.getTextContent();
+    const extractPageText = async (pageNumber: number): Promise<string> => {
+        const page = await pdf.getPage(pageNumber);
+        const textContent = await page.getTextContent();
 
-    // Join text items with proper spacing and line breaks
-    let text = "";
-    let lastY: number | null = null;
+        // Join text items with proper spacing and line breaks
+        let text = "";
+        let lastY: number | null = null;
 
-    for (const item of textContent.items) {
-        if (!("str" in item)) continue;
-        const typedItem = item as { str: string; transform: number[] };
-        const currentY = typedItem.transform[5]; // Y position
+        for (const item of textContent.items) {
+            if (!("str" in item)) continue;
+            const typedItem = item as { str: string; transform: number[] };
+            const currentY = typedItem.transform[5]; // Y position
 
-        if (lastY !== null && Math.abs(currentY - lastY) > 5) {
-            // New line detected
-            text += "\n";
-        } else if (text.length > 0 && !text.endsWith(" ") && !text.endsWith("\n")) {
-            text += " ";
+            if (lastY !== null && Math.abs(currentY - lastY) > 5) {
+                // New line detected
+                text += "\n";
+            } else if (text.length > 0 && !text.endsWith(" ") && !text.endsWith("\n")) {
+                text += " ";
+            }
+
+            text += typedItem.str;
+            lastY = currentY;
         }
 
-        text += typedItem.str;
-        lastY = currentY;
+        return text.trim();
+    };
+
+    const pageTexts: string[] = [];
+    for (let pageIndex = validPageNum; pageIndex <= finalEndPage; pageIndex++) {
+        const pageText = await extractPageText(pageIndex);
+        if (pageText) {
+            pageTexts.push(pageText);
+        }
     }
 
-    // Return marker for rendering + actual text for copying
-    // Format: PDF_EMBED:pageNum\n\n<actual text>
-    const trimmedText = text.trim();
+    const combinedText = pageTexts.join("\n\n").trim();
     logger.debug(
-        { validPageNum, textLength: trimmedText.length },
+        { validPageNum, finalEndPage, textLength: combinedText.length },
         "PDF chapter content extracted"
     );
-    return `PDF_EMBED:${validPageNum}\n\n${trimmedText}`;
+    // Return marker for rendering + actual text for copying
+    // Format: PDF_EMBED:pageNum\n\n<actual text>
+    return `PDF_EMBED:${validPageNum}\n\n${combinedText}`;
 }
 

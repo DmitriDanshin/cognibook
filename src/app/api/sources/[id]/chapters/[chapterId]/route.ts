@@ -103,7 +103,35 @@ export async function GET(
             } else if (fileExt === ".docx") {
                 content = await getDocxChapterContent(sourceBuffer, chapter.href);
             } else if (fileExt === ".pdf") {
-                content = await getPdfChapterContent(sourceBuffer, chapter.href);
+                const parsePdfPage = (href: string): number => {
+                    const match = href.match(/page-(\d+)/);
+                    return match ? parseInt(match[1], 10) : 1;
+                };
+
+                const startPage = parsePdfPage(chapter.href);
+                let endPage: number | undefined;
+
+                try {
+                    const chapters = await prisma.chapter.findMany({
+                        where: { sourceId: id },
+                        orderBy: { order: "asc" },
+                        select: { id: true, href: true },
+                    });
+                    const currentIndex = chapters.findIndex((c) => c.id === chapterId);
+                    if (currentIndex !== -1) {
+                        for (let i = currentIndex + 1; i < chapters.length; i++) {
+                            const nextPage = parsePdfPage(chapters[i].href);
+                            if (nextPage > startPage) {
+                                endPage = Math.max(startPage, nextPage - 1);
+                                break;
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.warn("Failed to compute PDF chapter range:", error);
+                }
+
+                content = await getPdfChapterContent(sourceBuffer, chapter.href, endPage);
             } else if (fileExt === ".md" || fileExt === ".markdown") {
                 content = await getMarkdownChapterContent(sourceBuffer, chapter.href);
             } else {
