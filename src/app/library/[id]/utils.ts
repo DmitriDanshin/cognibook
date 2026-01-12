@@ -47,11 +47,22 @@ export const buildChapterTree = (chapters: Chapter[]): Chapter[] => {
 };
 
 /**
- * Извлекает текст из HTML-строки
+ * Извлекает текст из HTML-строки или PDF контента
  */
-export const extractTextFromHtml = (html: string): string => {
+export const extractTextFromHtml = (content: string): string => {
+    // Handle PDF content: format is "PDF_EMBED:N\n\n<actual text>"
+    if (content.startsWith("PDF_EMBED:")) {
+        const textStart = content.indexOf("\n\n");
+        if (textStart !== -1) {
+            return content.slice(textStart + 2).trim();
+        }
+        // No text extracted from PDF
+        return "";
+    }
+
+    // Handle HTML content
     const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = html;
+    tempDiv.innerHTML = content;
     return tempDiv.textContent || tempDiv.innerText;
 };
 

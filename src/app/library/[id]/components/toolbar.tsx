@@ -121,7 +121,8 @@ export function Toolbar({
                     size="sm"
                     className="gap-2 text-muted-foreground hover:text-foreground"
                     onClick={handleCopyText}
-                    disabled={isMultiSelectMode && selectedChapterIds.size === 0}
+                    disabled={isMultiSelectMode ? selectedChapterIds.size === 0 : !selectedChapter}
+                    title={selectedChapter ? `Копировать: ${selectedChapter.title}` : "Копировать главу"}
                 >
                     <Copy className="h-4 w-4" />
                     <span className="hidden sm:inline">Копировать</span>
@@ -131,7 +132,8 @@ export function Toolbar({
                     size="sm"
                     className="gap-2 text-muted-foreground hover:text-foreground"
                     onClick={handleDownloadTxt}
-                    disabled={isMultiSelectMode && selectedChapterIds.size === 0}
+                    disabled={isMultiSelectMode ? selectedChapterIds.size === 0 : !selectedChapter}
+                    title={selectedChapter ? `Скачать: ${selectedChapter.title}` : "Скачать главу"}
                 >
                     <Download className="h-4 w-4" />
                     <span className="hidden sm:inline">Скачать TXT</span>

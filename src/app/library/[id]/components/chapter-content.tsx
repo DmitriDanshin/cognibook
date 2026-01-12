@@ -1,9 +1,19 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { BookOpen, Loader2 } from "lucide-react";
 import type { ChapterContentProps } from "../types";
+
+const PdfViewer = dynamic(() => import("./pdf-viewer").then(mod => mod.PdfViewer), {
+    ssr: false,
+    loading: () => (
+        <div className="flex h-full items-center justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+    ),
+});
 
 export const ChapterContent = memo(function ChapterContent({
     contentLoading,
@@ -12,17 +22,23 @@ export const ChapterContent = memo(function ChapterContent({
     contentRef,
     isSearchOpen,
     pdfUrl,
+    selectedChapter,
 }: ChapterContentProps) {
-    // If this is a PDF source, render iframe viewer
+    // Extract page number from selected chapter href (format: "page-N")
+    const initialPage = useMemo(() => {
+        if (!selectedChapter) return 1;
+        const match = selectedChapter.href.match(/page-(\d+)/);
+        return match ? parseInt(match[1], 10) : 1;
+    }, [selectedChapter]);
+
+    // If this is a PDF source, render PDF viewer
     if (pdfUrl) {
         return (
-            <div className={isSearchOpen ? "h-[calc(100dvh-6.5rem)] sm:h-[calc(100dvh-7rem)]" : "h-[calc(100dvh-3.5rem)] sm:h-[calc(100dvh-4rem)]"}>
-                <iframe
-                    src={`/api${pdfUrl}`}
-                    className="h-full w-full border-0"
-                    title="PDF Document"
-                />
-            </div>
+            <PdfViewer
+                url={`/api${pdfUrl}`}
+                className={isSearchOpen ? "h-[calc(100dvh-6.5rem)] sm:h-[calc(100dvh-7rem)]" : "h-[calc(100dvh-3.5rem)] sm:h-[calc(100dvh-4rem)]"}
+                initialPage={initialPage}
+            />
         );
     }
 

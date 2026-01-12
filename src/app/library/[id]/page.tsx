@@ -189,7 +189,7 @@ export default function SourceReaderPage({
             clearTimeout(enableTimeout);
             observer.disconnect();
         };
-         
+
     }, [contentReady, orderedChapters, chapterLookup, setSelectedChapter, scrollViewportRef, selectedChapter?.id]);
 
     // Quote highlighting
@@ -363,6 +363,7 @@ export default function SourceReaderPage({
                     contentRef={contentRef}
                     isSearchOpen={isSearchOpen}
                     pdfUrl={source?.sourceType === "pdf" ? source.filePath : null}
+                    selectedChapter={selectedChapter}
                 />
             </main>
         </div>

@@ -36,6 +36,7 @@ export type ChapterContentProps = {
     contentRef: RefObject<HTMLDivElement | null>;
     isSearchOpen: boolean;
     pdfUrl: string | null;
+    selectedChapter: Chapter | null;
 };
 
 export type QuizDialogProps = {
