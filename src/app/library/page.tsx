@@ -148,7 +148,7 @@ export default function LibraryPage() {
         const allowedExtensions = SOURCE_FILE_EXTENSIONS;
         const lowerName = file.name.toLowerCase();
         if (!allowedExtensions.some((ext) => lowerName.endsWith(ext))) {
-            toast.error("Поддерживаются только файлы EPUB, Markdown или Word");
+            toast.error("Поддерживаются только файлы EPUB, Markdown, Word или PDF");
             return;
         }
 
@@ -510,7 +510,7 @@ export default function LibraryPage() {
                                             <Input
                                                 id="epub-upload"
                                                 type="file"
-                                                accept=".epub,.md,.markdown,.docx"
+                                                accept=".epub,.md,.markdown,.docx,.pdf"
                                                 className="hidden"
                                                 onChange={handleFileUpload}
                                                 disabled={uploading}

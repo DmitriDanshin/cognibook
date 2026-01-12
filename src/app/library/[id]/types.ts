@@ -15,6 +15,8 @@ export interface Source {
     title: string;
     author: string | null;
     chapters: Chapter[];
+    sourceType?: string | null;
+    filePath?: string | null;
 }
 
 export interface ValidationError {
