@@ -48,7 +48,3 @@ export type ParsedMarkdown = ParsedSource<MarkdownMetadata>;
 export type DocxMetadata = SourceMetadata;
 
 export type ParsedDocx = ParsedSource<DocxMetadata>;
-
-export type PdfMetadata = SourceMetadata;
-
-export type ParsedPdf = ParsedSource<PdfMetadata>;

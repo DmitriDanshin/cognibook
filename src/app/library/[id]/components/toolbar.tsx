@@ -7,7 +7,6 @@ import {
     CheckSquare,
     Copy,
     Download,
-    FileText,
     Menu,
     Play,
     Search,
@@ -35,17 +34,6 @@ export function Toolbar({
     quizDialogProps,
 }: ToolbarProps) {
     const router = useRouter();
-    const isPdfSource = source?.sourceType?.toLowerCase() === "pdf";
-    const pdfUrl = source?.filePath
-        ? source.filePath.startsWith("/api/")
-            ? source.filePath
-            : `/api${source.filePath}`
-        : null;
-
-    const handleOpenPdf = () => {
-        if (!pdfUrl) return;
-        window.open(pdfUrl, "_blank", "noopener,noreferrer");
-    };
 
     return (
         <header className="relative z-30 flex h-14 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur sm:h-16 sm:px-6">
@@ -148,17 +136,6 @@ export function Toolbar({
                     <Download className="h-4 w-4" />
                     <span className="hidden sm:inline">Скачать TXT</span>
                 </Button>
-                {isPdfSource && pdfUrl && (
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2 text-muted-foreground hover:text-foreground"
-                        onClick={handleOpenPdf}
-                    >
-                        <FileText className="h-4 w-4" />
-                        <span className="hidden sm:inline">PDF</span>
-                    </Button>
-                )}
             </div>
         </header>
     );

@@ -16,7 +16,6 @@ export const IMAGE_EXTENSION_BY_MIME: Record<string, string> = {
 export const UPLOAD_CONTENT_TYPES: Record<string, string> = {
     ".epub": "application/epub+zip",
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ".pdf": "application/pdf",
     ".md": "text/markdown; charset=utf-8",
     ".markdown": "text/markdown; charset=utf-8",
     ...IMAGE_MIME_BY_EXTENSION,

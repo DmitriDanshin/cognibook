@@ -714,7 +714,7 @@ export async function POST(request: NextRequest) {
 
         if (!allowedExtensions.has(fileExt)) {
             return NextResponse.json(
-                { error: "Only EPUB, Markdown, Word, or PDF files are supported" },
+                { error: "Only EPUB, Markdown, or Word files are supported" },
                 { status: 400 }
             );
         }
@@ -809,11 +809,6 @@ export async function POST(request: NextRequest) {
                 }
             } else if (fileExt === ".docx") {
                 const parsed = await parseDocxFile(buffer);
-                title = parsed.metadata.title || title;
-                author = parsed.metadata.author;
-                tocItems = parsed.toc;
-            } else if (fileExt === ".pdf") {
-                const parsed = await parsePdfFile(buffer);
                 title = parsed.metadata.title || title;
                 author = parsed.metadata.author;
                 tocItems = parsed.toc;
