@@ -11,7 +11,21 @@ export const ChapterContent = memo(function ChapterContent({
     chapterContents,
     contentRef,
     isSearchOpen,
+    pdfUrl,
 }: ChapterContentProps) {
+    // If this is a PDF source, render iframe viewer
+    if (pdfUrl) {
+        return (
+            <div className={isSearchOpen ? "h-[calc(100dvh-6.5rem)] sm:h-[calc(100dvh-7rem)]" : "h-[calc(100dvh-3.5rem)] sm:h-[calc(100dvh-4rem)]"}>
+                <iframe
+                    src={`/api${pdfUrl}`}
+                    className="h-full w-full border-0"
+                    title="PDF Document"
+                />
+            </div>
+        );
+    }
+
     return (
         <ScrollArea className={isSearchOpen ? "h-[calc(100dvh-6.5rem)] sm:h-[calc(100dvh-7rem)]" : "h-[calc(100dvh-3.5rem)] sm:h-[calc(100dvh-4rem)]"}>
             {contentLoading ? (

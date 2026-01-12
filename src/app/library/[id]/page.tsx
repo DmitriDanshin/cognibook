@@ -189,7 +189,7 @@ export default function SourceReaderPage({
             clearTimeout(enableTimeout);
             observer.disconnect();
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
     }, [contentReady, orderedChapters, chapterLookup, setSelectedChapter, scrollViewportRef, selectedChapter?.id]);
 
     // Quote highlighting
@@ -362,6 +362,7 @@ export default function SourceReaderPage({
                     chapterContents={chapterContents}
                     contentRef={contentRef}
                     isSearchOpen={isSearchOpen}
+                    pdfUrl={source?.sourceType === "pdf" ? source.filePath : null}
                 />
             </main>
         </div>

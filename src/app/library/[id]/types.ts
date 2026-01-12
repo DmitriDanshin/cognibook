@@ -14,6 +14,8 @@ export interface Source {
     id: string;
     title: string;
     author: string | null;
+    filePath: string | null;
+    sourceType: string | null;
     chapters: Chapter[];
 }
 
@@ -33,6 +35,7 @@ export type ChapterContentProps = {
     chapterContents: Record<string, string>;
     contentRef: RefObject<HTMLDivElement | null>;
     isSearchOpen: boolean;
+    pdfUrl: string | null;
 };
 
 export type QuizDialogProps = {

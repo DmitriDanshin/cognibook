@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth";
 import path from "path";
 import { parseEpubFile, TocItem } from "@/lib/parsers/source-parsers/epub-parser";
 import { parseDocxFile } from "@/lib/parsers/source-parsers/docx-parser";
+import { parsePdfFile } from "@/lib/parsers/source-parsers/pdf-parser";
 import { parseMarkdownFile } from "@/lib/parsers/source-parsers/markdown-parser";
 import { parseYouTubeTranscript } from "@/lib/parsers/source-parsers/youtube-parser";
 import { parseWebPageToMarkdown, type WebImage } from "@/lib/parsers/source-parsers/web-parser";
@@ -714,7 +715,7 @@ export async function POST(request: NextRequest) {
 
         if (!allowedExtensions.has(fileExt)) {
             return NextResponse.json(
-                { error: "Only EPUB, Markdown, or Word files are supported" },
+                { error: "Only EPUB, Markdown, Word, or PDF files are supported" },
                 { status: 400 }
             );
         }
@@ -811,6 +812,11 @@ export async function POST(request: NextRequest) {
                 const parsed = await parseDocxFile(buffer);
                 title = parsed.metadata.title || title;
                 author = parsed.metadata.author;
+                tocItems = parsed.toc;
+            } else if (fileExt === ".pdf") {
+                const parsed = await parsePdfFile(buffer);
+                // For PDF, use filename as title since we can't extract metadata
+                title = title || parsed.metadata.title;
                 tocItems = parsed.toc;
             } else {
                 const parsed = await parseMarkdownFile(buffer);
