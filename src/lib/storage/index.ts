@@ -1,6 +1,7 @@
 import "server-only";
 import path from "path";
 import { mkdir, readFile, stat, unlink, writeFile } from "fs/promises";
+import { createLogger } from "@/lib/logger";
 
 export type StorageKey = string;
 
@@ -20,6 +21,7 @@ export interface StorageProvider {
 const UPLOADS_PREFIX = "uploads";
 const API_PREFIX = "/api";
 const DISK_BASE_DIR = path.join(process.cwd(), UPLOADS_PREFIX);
+const logger = createLogger("storage");
 
 const normalizeKey = (key: StorageKey): StorageKey => {
     const normalized = key.replace(/\\/g, "/").replace(/^\/+/, "");
@@ -68,18 +70,18 @@ export const storage: StorageProvider = {
         const filePath = toDiskPathFromNormalized(normalized);
         await mkdir(path.dirname(filePath), { recursive: true });
         await writeFile(filePath, data);
-        console.info("[storage] save", {
+        logger.info({
             key: normalized,
             bytes: data.byteLength,
-        });
+        }, "storage save");
     },
     async read(key) {
         const normalized = normalizeKey(key);
         const buffer = await readFile(toDiskPathFromNormalized(normalized));
-        console.info("[storage] read", {
+        logger.info({
             key: normalized,
             bytes: buffer.length,
-        });
+        }, "storage read");
         return buffer;
     },
     async delete(key, options) {
@@ -87,20 +89,20 @@ export const storage: StorageProvider = {
         const filePath = toDiskPathFromNormalized(normalized);
         try {
             await unlink(filePath);
-            console.info("[storage] delete", { key: normalized });
+            logger.info({ key: normalized }, "storage delete");
         } catch (error) {
             if (options?.ignoreErrors) {
-                console.warn("[storage] delete failed", {
+                logger.warn({
                     key: normalized,
                     error,
-                });
+                }, "storage delete failed (ignored)");
                 return;
             }
             if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-                console.error("[storage] delete failed", {
+                logger.error({
                     key: normalized,
                     error,
-                });
+                }, "storage delete failed");
                 throw error;
             }
         }
@@ -109,13 +111,13 @@ export const storage: StorageProvider = {
         const normalized = normalizeKey(key);
         try {
             await stat(toDiskPathFromNormalized(normalized));
-            console.debug("[storage] exists", { key: normalized, exists: true });
+            logger.debug({ key: normalized, exists: true }, "storage exists");
             return true;
         } catch {
-            console.debug("[storage] exists", {
+            logger.debug({
                 key: normalized,
                 exists: false,
-            });
+            }, "storage exists");
             return false;
         }
     },

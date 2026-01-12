@@ -26,6 +26,11 @@ npm run dev
 
 Приложение: http://localhost:3000
 
+## Переменные окружения
+
+- `PINO_LOG_LEVEL` — уровень логов (`debug`, `info`, `warn`, `error`). В dev по умолчанию `debug`.
+- `PINO_PRETTY` — включает pretty-логирование в dev (`true`/`false`). По умолчанию включено.
+
 ## Развёртывание
 
 См. [docs/deployment.md](docs/deployment.md)

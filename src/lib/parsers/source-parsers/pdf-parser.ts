@@ -2,6 +2,7 @@ import { BaseParser } from "./base-parser";
 import type { TocItem, SpineItem, SourceMetadata, ParsedSource } from "./types";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import path from "path";
+import { createLogger } from "@/lib/logger";
 
 // Configure worker for Node.js environment
 if (typeof window === "undefined") {
@@ -12,6 +13,8 @@ if (typeof window === "undefined") {
     );
     pdfjs.GlobalWorkerOptions.workerSrc = `file://${workerPath.replace(/\\/g, "/")}`;
 }
+
+const logger = createLogger("pdf-parser");
 
 export type PdfMetadata = SourceMetadata;
 export type ParsedPdf = ParsedSource<PdfMetadata>;
@@ -31,11 +34,13 @@ export class PdfParser extends BaseParser<ParsedPdf> {
     }
 
     async parse(): Promise<ParsedPdf> {
+        logger.info({ size: this.buffer.length }, "PDF parse started");
         const data = new Uint8Array(this.buffer);
         const pdf = await pdfjs.getDocument({
             data,
             useSystemFonts: true,
         }).promise;
+        logger.info({ numPages: pdf.numPages }, "PDF loaded");
 
         // Extract metadata
         const pdfMetadata = await pdf.getMetadata();
@@ -48,6 +53,10 @@ export class PdfParser extends BaseParser<ParsedPdf> {
             publisher: null,
             description: (info?.Subject as string) || null,
         };
+        logger.debug(
+            { title: metadata.title, author: metadata.author },
+            "PDF metadata extracted"
+        );
 
         // Extract outline (table of contents)
         const outline = await pdf.getOutline() as PdfOutlineItem[] | null;
@@ -58,6 +67,7 @@ export class PdfParser extends BaseParser<ParsedPdf> {
 
         if (outline && outline.length > 0) {
             // Use PDF bookmarks as chapters
+            logger.info({ outlineItems: outline.length }, "PDF outline extracted");
             toc = await this.buildTocFromOutline(outline, pdf);
             spine = toc.map((item, index) => ({
                 id: item.id,
@@ -67,6 +77,10 @@ export class PdfParser extends BaseParser<ParsedPdf> {
         } else {
             // Fallback: create chapter per page (max 50 pages to avoid too many chapters)
             const maxChapters = Math.min(numPages, 50);
+            logger.info(
+                { numPages, maxChapters },
+                "PDF outline missing, falling back to per-page TOC"
+            );
             toc = [];
             spine = [];
 
@@ -97,6 +111,10 @@ export class PdfParser extends BaseParser<ParsedPdf> {
             }
         }
 
+        logger.info(
+            { tocItems: toc.length, spineItems: spine.length },
+            "PDF TOC built"
+        );
         return {
             metadata,
             toc,
@@ -131,6 +149,10 @@ export class PdfParser extends BaseParser<ParsedPdf> {
                         pageNum = pageIndex + 1;
                     }
                 } catch {
+                    logger.warn(
+                        { title: item.title ?? null },
+                        "Failed to resolve PDF outline destination"
+                    );
                     // Keep default page 1
                 }
             }
@@ -172,6 +194,7 @@ export async function getPdfChapterContent(
 ): Promise<string> {
     const match = chapterHref.match(/page-(\d+)/);
     const pageNum = match ? parseInt(match[1], 10) : 1;
+    logger.debug({ chapterHref, pageNum }, "PDF chapter content requested");
 
     const data = new Uint8Array(buffer);
     const pdf = await pdfjs.getDocument({
@@ -181,6 +204,12 @@ export async function getPdfChapterContent(
 
     // Ensure page number is valid
     const validPageNum = Math.max(1, Math.min(pageNum, pdf.numPages));
+    if (validPageNum !== pageNum) {
+        logger.warn(
+            { pageNum, validPageNum, numPages: pdf.numPages },
+            "PDF chapter page out of range, clamped"
+        );
+    }
     const page = await pdf.getPage(validPageNum);
     const textContent = await page.getTextContent();
 
@@ -206,6 +235,11 @@ export async function getPdfChapterContent(
 
     // Return marker for rendering + actual text for copying
     // Format: PDF_EMBED:pageNum\n\n<actual text>
-    return `PDF_EMBED:${validPageNum}\n\n${text.trim()}`;
+    const trimmedText = text.trim();
+    logger.debug(
+        { validPageNum, textLength: trimmedText.length },
+        "PDF chapter content extracted"
+    );
+    return `PDF_EMBED:${validPageNum}\n\n${trimmedText}`;
 }
 
