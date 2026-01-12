@@ -23,6 +23,7 @@ export const ChapterContent = memo(function ChapterContent({
     isSearchOpen,
     pdfUrl,
     selectedChapter,
+    onPdfPageChange,
 }: ChapterContentProps) {
     // Extract page number from selected chapter href (format: "page-N")
     const initialPage = useMemo(() => {
@@ -38,6 +39,7 @@ export const ChapterContent = memo(function ChapterContent({
                 url={`/api${pdfUrl}`}
                 className={isSearchOpen ? "h-[calc(100dvh-6.5rem)] sm:h-[calc(100dvh-7rem)]" : "h-[calc(100dvh-3.5rem)] sm:h-[calc(100dvh-4rem)]"}
                 initialPage={initialPage}
+                onPageChange={onPdfPageChange}
             />
         );
     }

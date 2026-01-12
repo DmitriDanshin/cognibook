@@ -126,6 +126,30 @@ export default function SourceReaderPage({
         }
     }, [baseHandleSelectChapter, setSelectedChapter]);
 
+    // Handle PDF page change - find and select the corresponding chapter
+    const handlePdfPageChange = useCallback((pageNumber: number) => {
+        // Find the chapter that best matches this page number
+        // Chapters have href in format "page-N"
+        let bestMatch: Chapter | null = null;
+        let bestPage = 0;
+
+        for (const chapter of orderedChapters) {
+            const match = chapter.href.match(/page-(\d+)/);
+            if (match) {
+                const chapterPage = parseInt(match[1], 10);
+                // Find the chapter with the highest page number <= current page
+                if (chapterPage <= pageNumber && chapterPage > bestPage) {
+                    bestPage = chapterPage;
+                    bestMatch = chapter;
+                }
+            }
+        }
+
+        if (bestMatch && bestMatch.id !== selectedChapter?.id) {
+            setSelectedChapter(bestMatch);
+        }
+    }, [orderedChapters, selectedChapter?.id, setSelectedChapter]);
+
     // Initial data fetch
     useEffect(() => {
         fetchSource();
@@ -364,6 +388,7 @@ export default function SourceReaderPage({
                     isSearchOpen={isSearchOpen}
                     pdfUrl={source?.sourceType === "pdf" ? source.filePath : null}
                     selectedChapter={selectedChapter}
+                    onPdfPageChange={handlePdfPageChange}
                 />
             </main>
         </div>
