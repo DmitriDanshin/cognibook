@@ -1,5 +1,5 @@
 // CogniBook Service Worker
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const STATIC_CACHE = `cognibook-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `cognibook-dynamic-${CACHE_VERSION}`;
 const CHAPTER_CACHE = `cognibook-chapters-${CACHE_VERSION}`;

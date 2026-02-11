@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +36,7 @@ import {
     ImagePlus,
     Pencil,
     Tag,
+    SlidersHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { CoverUploadDialog } from "./components/cover-upload-dialog";
@@ -101,7 +102,37 @@ interface Source {
     _count: { chapters: number };
 }
 
+type LibrarySortOption =
+    | "created_desc"
+    | "created_asc"
+    | "title_asc"
+    | "title_desc"
+    | "progress_desc"
+    | "progress_asc"
+    | "size_desc"
+    | "size_asc";
+
+type LibraryProgressFilter = "all" | "not_started" | "in_progress" | "completed";
+
+const LIBRARY_VIEW_SETTINGS_KEY = "library-view-settings-v1";
+
 export default function LibraryPage() {
+    const getStoredViewSettings = () => {
+        if (typeof window === "undefined") {
+            return null;
+        }
+
+        try {
+            const raw = window.localStorage.getItem(LIBRARY_VIEW_SETTINGS_KEY);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed !== "object") return null;
+            return parsed as Record<string, unknown>;
+        } catch {
+            return null;
+        }
+    };
+
     const [sources, setSources] = useState<Source[]>([]);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
@@ -122,6 +153,41 @@ export default function LibraryPage() {
     const [webUrl, setWebUrl] = useState("");
     const [pasteTitle, setPasteTitle] = useState("");
     const [pasteContent, setPasteContent] = useState("");
+    const [viewMode, setViewMode] = useState<"cards" | "table">(() => {
+        const stored = getStoredViewSettings()?.viewMode;
+        return stored === "cards" || stored === "table" ? stored : "cards";
+    });
+    const [isFiltersExpanded, setIsFiltersExpanded] = useState(false);
+    const [sortBy, setSortBy] = useState<LibrarySortOption>(() => {
+        const stored = getStoredViewSettings()?.sortBy;
+        return stored === "created_desc" ||
+            stored === "created_asc" ||
+            stored === "title_asc" ||
+            stored === "title_desc" ||
+            stored === "progress_desc" ||
+            stored === "progress_asc" ||
+            stored === "size_desc" ||
+            stored === "size_asc"
+            ? stored
+            : "created_desc";
+    });
+    const [typeFilter, setTypeFilter] = useState<string>(() => {
+        const stored = getStoredViewSettings()?.typeFilter;
+        return typeof stored === "string" ? stored : "all";
+    });
+    const [progressFilter, setProgressFilter] = useState<LibraryProgressFilter>(() => {
+        const stored = getStoredViewSettings()?.progressFilter;
+        return stored === "all" ||
+            stored === "not_started" ||
+            stored === "in_progress" ||
+            stored === "completed"
+            ? stored
+            : "all";
+    });
+    const [searchQuery, setSearchQuery] = useState<string>(() => {
+        const stored = getStoredViewSettings()?.searchQuery;
+        return typeof stored === "string" ? stored : "";
+    });
 
     const fetchSources = useCallback(async () => {
         try {
@@ -140,6 +206,20 @@ export default function LibraryPage() {
     useEffect(() => {
         fetchSources();
     }, [fetchSources]);
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        window.localStorage.setItem(
+            LIBRARY_VIEW_SETTINGS_KEY,
+            JSON.stringify({
+                viewMode,
+                sortBy,
+                typeFilter,
+                progressFilter,
+                searchQuery,
+            })
+        );
+    }, [viewMode, sortBy, typeFilter, progressFilter, searchQuery]);
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -335,16 +415,38 @@ export default function LibraryPage() {
         }
     };
 
-    const getSourceTypeLabel = (source: Source) => {
+    const getSourceProgress = useCallback(
+        (source: Source) => source.readingProgress[0]?.progress ?? 0,
+        []
+    );
+
+    const getSourceTypeKey = useCallback((source: Source) => {
         const rawType = source.sourceType?.toLowerCase();
         if (rawType && SOURCE_TYPE_LABELS[rawType]) {
-            return SOURCE_TYPE_LABELS[rawType];
+            return rawType;
         }
-        if (!source.filePath) return "Источник";
-        const ext = source.filePath.split(".").pop()?.toLowerCase();
-        if (!ext) return "Файл";
-        return SOURCE_TYPE_LABELS[ext] ?? "Файл";
-    };
+
+        const ext = source.filePath?.split(".").pop()?.toLowerCase();
+        if (ext && SOURCE_TYPE_LABELS[ext]) {
+            return ext;
+        }
+
+        if (rawType) return rawType;
+        if (ext) return ext;
+        return "unknown";
+    }, []);
+
+    const getSourceTypeLabel = useCallback(
+        (source: Source) => {
+            const typeKey = getSourceTypeKey(source);
+            if (SOURCE_TYPE_LABELS[typeKey]) {
+                return SOURCE_TYPE_LABELS[typeKey];
+            }
+            if (!source.filePath) return "Источник";
+            return "Файл";
+        },
+        [getSourceTypeKey]
+    );
 
     const isMarkdownSource = (source: Source) => {
         const rawType = source.sourceType?.toLowerCase();
@@ -360,6 +462,116 @@ export default function LibraryPage() {
         if (isWebSource(source) || isMarkdownSource(source)) return null;
         return "Автор неизвестен";
     };
+
+    const sourceTypeOptions = useMemo(() => {
+        const typeMap = new Map<string, string>();
+        sources.forEach((source) => {
+            const key = getSourceTypeKey(source);
+            if (!typeMap.has(key)) {
+                typeMap.set(key, getSourceTypeLabel(source));
+            }
+        });
+
+        return Array.from(typeMap.entries())
+            .map(([value, label]) => ({ value, label }))
+            .sort((a, b) => a.label.localeCompare(b.label, "ru"));
+    }, [sources, getSourceTypeKey, getSourceTypeLabel]);
+
+    useEffect(() => {
+        if (typeFilter === "all") return;
+        if (!sourceTypeOptions.some((option) => option.value === typeFilter)) {
+            setTypeFilter("all");
+        }
+    }, [sourceTypeOptions, typeFilter]);
+
+    const visibleSources = useMemo(() => {
+        const normalizedQuery = searchQuery.trim().toLowerCase();
+
+        const filtered = sources.filter((source) => {
+            if (typeFilter !== "all" && getSourceTypeKey(source) !== typeFilter) {
+                return false;
+            }
+
+            const progress = getSourceProgress(source);
+            if (progressFilter === "not_started" && progress > 0) {
+                return false;
+            }
+            if (progressFilter === "in_progress" && (progress <= 0 || progress >= 99.5)) {
+                return false;
+            }
+            if (progressFilter === "completed" && progress < 99.5) {
+                return false;
+            }
+
+            if (!normalizedQuery) {
+                return true;
+            }
+
+            const searchHaystack = [
+                source.title,
+                source.author ?? "",
+                getSourceTypeLabel(source),
+            ]
+                .join(" ")
+                .toLowerCase();
+
+            return searchHaystack.includes(normalizedQuery);
+        });
+
+        const sorted = [...filtered];
+        sorted.sort((a, b) => {
+            switch (sortBy) {
+                case "created_asc":
+                    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+                case "created_desc":
+                    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                case "title_asc":
+                    return a.title.localeCompare(b.title, "ru");
+                case "title_desc":
+                    return b.title.localeCompare(a.title, "ru");
+                case "progress_asc":
+                    return getSourceProgress(a) - getSourceProgress(b);
+                case "progress_desc":
+                    return getSourceProgress(b) - getSourceProgress(a);
+                case "size_asc":
+                    return (a.fileSize ?? 0) - (b.fileSize ?? 0);
+                case "size_desc":
+                    return (b.fileSize ?? 0) - (a.fileSize ?? 0);
+                default:
+                    return 0;
+            }
+        });
+
+        return sorted;
+    }, [
+        sources,
+        sortBy,
+        typeFilter,
+        progressFilter,
+        searchQuery,
+        getSourceProgress,
+        getSourceTypeKey,
+        getSourceTypeLabel,
+    ]);
+
+    const hasActiveFilters =
+        searchQuery.trim().length > 0 ||
+        typeFilter !== "all" ||
+        progressFilter !== "all" ||
+        sortBy !== "created_desc";
+
+    const activeFiltersCount =
+        Number(searchQuery.trim().length > 0) +
+        Number(typeFilter !== "all") +
+        Number(progressFilter !== "all") +
+        Number(sortBy !== "created_desc");
+
+    const resetFiltersAndSort = useCallback(() => {
+        setSearchQuery("");
+        setTypeFilter("all");
+        setProgressFilter("all");
+        setSortBy("created_desc");
+    }, []);
 
 
     const handleCoverDialogChange = (open: boolean) => {
@@ -435,7 +647,28 @@ export default function LibraryPage() {
                             </div>
                         </div>
 
-                        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                            <div className="inline-flex rounded-lg border border-border p-1">
+                                <Button
+                                    type="button"
+                                    variant={viewMode === "cards" ? "default" : "ghost"}
+                                    size="sm"
+                                    onClick={() => setViewMode("cards")}
+                                    className="px-3"
+                                >
+                                    Карточки
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant={viewMode === "table" ? "default" : "ghost"}
+                                    size="sm"
+                                    onClick={() => setViewMode("table")}
+                                    className="px-3"
+                                >
+                                    Таблица
+                                </Button>
+                            </div>
+                            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                             <DialogTrigger asChild>
                                 <Button className="w-full gap-2 sm:w-auto">
                                     <Upload className="h-4 w-4" />
@@ -625,7 +858,8 @@ export default function LibraryPage() {
                                     )}
                                 </div>
                             </DialogContent>
-                        </Dialog>
+                            </Dialog>
+                        </div>
                         <Dialog open={isPasteFullscreen} onOpenChange={setIsPasteFullscreen}>
                             <DialogContent showCloseButton={false} className="flex !h-[80vh] !w-[80vw] max-w-none sm:max-w-none flex-col border-border bg-background p-4">
                                 <DialogHeader className="sr-only">
@@ -733,8 +967,107 @@ export default function LibraryPage() {
                         </Button>
                     </div>
                 ) : (
+                    <>
+                        <div className="mb-4 rounded-xl border border-border bg-card p-3">
+                            <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+                                <div className="min-w-0 flex-1">
+                                    <Input
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        placeholder="Поиск по названию, автору и типу"
+                                        className="h-9 bg-background text-foreground placeholder:text-muted-foreground"
+                                    />
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <select
+                                        value={sortBy}
+                                        onChange={(e) => setSortBy(e.target.value as LibrarySortOption)}
+                                        className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-foreground/60 focus:outline-none"
+                                    >
+                                        <option value="created_desc">Сначала новые</option>
+                                        <option value="created_asc">Сначала старые</option>
+                                        <option value="title_asc">Название А-Я</option>
+                                        <option value="title_desc">Название Я-А</option>
+                                        <option value="progress_desc">Прогресс по убыванию</option>
+                                        <option value="progress_asc">Прогресс по возрастанию</option>
+                                        <option value="size_desc">Размер по убыванию</option>
+                                        <option value="size_asc">Размер по возрастанию</option>
+                                    </select>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant={isFiltersExpanded || hasActiveFilters ? "secondary" : "outline"}
+                                        onClick={() => setIsFiltersExpanded((prev) => !prev)}
+                                        className="gap-2"
+                                    >
+                                        <SlidersHorizontal className="h-4 w-4" />
+                                        Фильтры
+                                        {activeFiltersCount > 0 && (
+                                            <span className="rounded-full bg-foreground/10 px-1.5 py-0.5 text-xs text-foreground">
+                                                {activeFiltersCount}
+                                            </span>
+                                        )}
+                                    </Button>
+                                    {hasActiveFilters && (
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={resetFiltersAndSort}
+                                        >
+                                            Сбросить
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
+                            {isFiltersExpanded && (
+                                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                                    <select
+                                        value={typeFilter}
+                                        onChange={(e) => setTypeFilter(e.target.value)}
+                                        className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-foreground/60 focus:outline-none"
+                                    >
+                                        <option value="all">Все типы</option>
+                                        {sourceTypeOptions.map((option) => (
+                                            <option key={option.value} value={option.value}>
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <select
+                                        value={progressFilter}
+                                        onChange={(e) =>
+                                            setProgressFilter(e.target.value as LibraryProgressFilter)
+                                        }
+                                        className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-foreground/60 focus:outline-none"
+                                    >
+                                        <option value="all">Весь прогресс</option>
+                                        <option value="not_started">Не начат</option>
+                                        <option value="in_progress">В процессе</option>
+                                        <option value="completed">Завершён</option>
+                                    </select>
+                                </div>
+                            )}
+                        </div>
+                        {visibleSources.length === 0 ? (
+                            <div className="flex min-h-[280px] flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 text-center">
+                                <h3 className="mb-2 text-lg font-semibold text-foreground">
+                                    Ничего не найдено
+                                </h3>
+                                <p className="mb-4 text-sm text-muted-foreground">
+                                    Измените фильтры или очистите поиск
+                                </p>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={resetFiltersAndSort}
+                                >
+                                    Очистить фильтры
+                                </Button>
+                            </div>
+                        ) : viewMode === "cards" ? (
                     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                        {sources.map((source) => (
+                        {visibleSources.map((source) => (
                             <Card
                                 key={source.id}
                                 className="group relative min-w-0 overflow-hidden border-border bg-card transition-all hover:border-foreground/30 hover:shadow-lg hover:shadow-black/5"
@@ -787,19 +1120,19 @@ export default function LibraryPage() {
                                             {formatDateRuShort(source.createdAt)}
                                         </Badge>
                                     </div>
-                                    {source.readingProgress[0]?.progress > 0 && (
+                                    {getSourceProgress(source) > 0 && (
                                         <div className="mt-3">
                                             <div className="mb-1 flex justify-between text-xs text-muted-foreground">
                                                 <span>Прогресс</span>
                                                 <span>
-                                                    {Math.round(source.readingProgress[0].progress)}%
+                                                    {Math.round(getSourceProgress(source))}%
                                                 </span>
                                             </div>
                                             <div className="h-1.5 overflow-hidden rounded-full bg-border">
                                                 <div
                                                     className="h-full rounded-full bg-foreground"
                                                     style={{
-                                                        width: `${source.readingProgress[0].progress}%`,
+                                                        width: `${getSourceProgress(source)}%`,
                                                     }}
                                                 />
                                             </div>
@@ -852,6 +1185,106 @@ export default function LibraryPage() {
                             </Card>
                         ))}
                     </div>
+                ) : (
+                    <div className="overflow-hidden rounded-xl border border-border bg-card">
+                        <div className="overflow-x-auto">
+                            <table className="min-w-[980px] w-full text-sm">
+                                <thead className="bg-muted/60 text-left">
+                                    <tr>
+                                        <th className="px-4 py-3 font-medium text-foreground">Источник</th>
+                                        <th className="px-4 py-3 font-medium text-foreground">Автор</th>
+                                        <th className="px-4 py-3 font-medium text-foreground">Тип</th>
+                                        <th className="px-4 py-3 font-medium text-foreground">Размер</th>
+                                        <th className="px-4 py-3 font-medium text-foreground">Добавлен</th>
+                                        <th className="px-4 py-3 font-medium text-foreground">Прогресс</th>
+                                        <th className="px-4 py-3 text-right font-medium text-foreground">Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {visibleSources.map((source) => (
+                                        <tr key={source.id} className="border-t border-border align-middle">
+                                            <td className="px-4 py-3">
+                                                <Link
+                                                    href={`/library/${source.id}`}
+                                                    className="block max-w-[280px] truncate font-medium text-foreground hover:underline"
+                                                    title={source.title}
+                                                >
+                                                    {source.title}
+                                                </Link>
+                                            </td>
+                                            <td className="px-4 py-3 text-muted-foreground">
+                                                {getAuthorLabel(source) ?? "—"}
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <Badge variant="secondary" className="gap-1">
+                                                    <Tag className="h-3 w-3" />
+                                                    {getSourceTypeLabel(source)}
+                                                </Badge>
+                                            </td>
+                                            <td className="px-4 py-3 text-muted-foreground">
+                                                {formatFileSizeMb(source.fileSize)}
+                                            </td>
+                                            <td className="px-4 py-3 text-muted-foreground">
+                                                {formatDateRuShort(source.createdAt)}
+                                            </td>
+                                            <td className="px-4 py-3 text-muted-foreground">
+                                                {getSourceProgress(source) > 0
+                                                    ? `${Math.round(getSourceProgress(source))}%`
+                                                    : "—"}
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <Link href={`/library/${source.id}`}>
+                                                        <Button size="sm">
+                                                            <BookOpen className="mr-2 h-4 w-4" />
+                                                            Читать
+                                                        </Button>
+                                                    </Link>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="icon"
+                                                        className="text-muted-foreground hover:text-foreground"
+                                                        onClick={() => {
+                                                            setRenameSource(source);
+                                                            setRenameTitle(source.title);
+                                                            setIsRenameDialogOpen(true);
+                                                        }}
+                                                        aria-label="Переименовать источник"
+                                                        title="Переименовать источник"
+                                                    >
+                                                        <Pencil className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="icon"
+                                                        className="text-muted-foreground hover:text-foreground"
+                                                        onClick={() => {
+                                                            setActiveCoverSource(source);
+                                                            setIsCoverDialogOpen(true);
+                                                        }}
+                                                        aria-label="Изменить обложку"
+                                                        title="Изменить обложку"
+                                                    >
+                                                        <ImagePlus className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="icon"
+                                                        className="text-muted-foreground hover:text-foreground"
+                                                        onClick={() => handleDelete(source.id, source.title)}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                        )}
+                    </>
                 )}
             </main>
         </div>
